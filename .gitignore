@@ -1,0 +1,83 @@
+# .gitignore for test-ccv-lcl
+# This file contains sensible defaults for Python/Node projects and
+# excludes local development artifacts, virtual environments, secrets,
+# and large data files (e.g., raw SCA payloads).
+# Adjust patterns as needed for your environment.
+
+## Python related
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtualenvs
+venv/
+.venv/
+env/
+Env/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Logs & test output
+*.log
+.log.*
+.coverage
+coverage/
+htmlcov/
+.pytest_cache/
+
+# Byte-compiled / generated
+*.pyc
+*.pyo
+*.pyd
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.swp
+*~
+
+# Secrets / credential files (do not commit keys)
+.env
+.env.local
+.env.*.local
+secrets.json
+credentials.json
+*.key
+*.pem
+
+# Firestore / Firebase emulator artifacts (local dev)
+.firebaserc
+firebase-debug.log
+
+# IDE / build tool caches
+.cache/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Large or sensitive data (store raw SCA in GCS instead of committing)
+ccv/data/
+**/data/
+
+# If you have a local git directory that you don't want to track here
+# (e.g., copied .git from another repo), ignore it. Use with caution.
+.git/
+

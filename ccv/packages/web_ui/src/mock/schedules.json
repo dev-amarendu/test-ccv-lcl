@@ -1,0 +1,26 @@
+[
+  {
+    "id": "sched-0000-0001-4000-8000-000000000001",
+    "repo_id": "a1b2c3d4-1111-4000-8000-000000000001",
+    "branch": "main",
+    "artifact_mode": "latest",
+    "artifact_uri": null,
+    "interval_minutes": 1440,
+    "enabled": true,
+    "next_run_at": "2026-02-14T03:00:00Z",
+    "created_at": "2025-12-01T10:00:00Z",
+    "updated_at": "2026-02-13T03:00:05Z"
+  },
+  {
+    "id": "sched-0000-0002-4000-8000-000000000002",
+    "repo_id": "a1b2c3d4-2222-4000-8000-000000000002",
+    "branch": "main",
+    "artifact_mode": "pinned",
+    "artifact_uri": "s3://ccv-artifacts/auth-gateway/main/build-1204.tar.gz",
+    "interval_minutes": 10080,
+    "enabled": false,
+    "next_run_at": null,
+    "created_at": "2026-01-15T16:00:00Z",
+    "updated_at": "2026-02-05T09:22:00Z"
+  }
+]

@@ -1,0 +1,7 @@
+# CCV — local development stack
+#
+# Firestore:  use `gcloud emulators firestore start --host-port=localhost:8787`
+# Pub/Sub:    use `gcloud beta emulators pubsub start --host-port=localhost:8085`
+#
+# No containers are required for the GCP-native stack.
+# This file is kept for reference / future additions.

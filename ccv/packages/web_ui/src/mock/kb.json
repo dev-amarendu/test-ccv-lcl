@@ -1,0 +1,71 @@
+[
+  {
+    "id": "kb-00000000-0001-4000-8000-000000000001",
+    "cwe_id": 89,
+    "title": "Preventing SQL Injection with Parameterised Queries",
+    "tags": ["sql-injection", "database", "input-validation", "parameterised-queries"],
+    "summary": "SQL Injection occurs when untrusted data is sent to an interpreter as part of a command or query. Use parameterised queries and prepared statements to separate code from data.",
+    "fix_steps_json": {
+      "steps": [
+        "Identify all database query call sites that use string concatenation or template literals.",
+        "Replace concatenated values with parameterised placeholders ($1, ?, :name depending on the driver).",
+        "Pass user inputs as bind parameters in an array or object.",
+        "Enable strict mode / prepared-statement caching where supported.",
+        "Add integration tests that attempt injection payloads and verify they are safely escaped."
+      ]
+    },
+    "content": "## Overview\n\nSQL Injection (CWE-89) is one of the most dangerous web application vulnerabilities. It allows attackers to interfere with the queries an application makes to its database.\n\n## Recommended Fix\n\nAlways use parameterised queries:\n\n```typescript\n// UNSAFE\nconst q = `SELECT * FROM users WHERE id = '${userId}'`;\n\n// SAFE\nconst q = 'SELECT * FROM users WHERE id = $1';\nconst result = await pool.query(q, [userId]);\n```\n\n## References\n- [OWASP SQL Injection Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html)\n- [CWE-89](https://cwe.mitre.org/data/definitions/89.html)",
+    "source": "owasp",
+    "approved": true,
+    "original_finding_id": "find-0000-0001-4000-8000-000000000001",
+    "usage_count": 14,
+    "created_at": "2025-11-01T10:00:00Z",
+    "updated_at": "2026-01-15T12:30:00Z"
+  },
+  {
+    "id": "kb-00000000-0002-4000-8000-000000000002",
+    "cwe_id": 79,
+    "title": "Mitigating Cross-Site Scripting (XSS) in React Applications",
+    "tags": ["xss", "react", "sanitisation", "content-security-policy"],
+    "summary": "XSS attacks inject malicious scripts into web pages viewed by other users. In React, avoid dangerouslySetInnerHTML and always sanitise user-generated HTML content.",
+    "fix_steps_json": {
+      "steps": [
+        "Audit all uses of dangerouslySetInnerHTML across the codebase.",
+        "Replace with sanitised rendering using a library like DOMPurify.",
+        "Implement a Content Security Policy (CSP) header to mitigate impact of any remaining XSS.",
+        "Escape user input when rendering outside of JSX (e.g. in document.title or URL parameters).",
+        "Add automated tests with XSS payloads (e.g. <script>alert(1)</script>) to confirm proper escaping."
+      ]
+    },
+    "content": "## Overview\n\nCross-Site Scripting (CWE-79) allows attackers to inject client-side scripts into web pages. React's JSX auto-escapes by default, but `dangerouslySetInnerHTML` bypasses this protection.\n\n## Recommended Fix\n\n```tsx\nimport DOMPurify from 'dompurify';\n\nfunction SafeHTML({ html }: { html: string }) {\n  return <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }} />;\n}\n```\n\n## References\n- [OWASP XSS Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html)\n- [CWE-79](https://cwe.mitre.org/data/definitions/79.html)",
+    "source": "owasp",
+    "approved": true,
+    "original_finding_id": "find-0000-0002-4000-8000-000000000002",
+    "usage_count": 9,
+    "created_at": "2025-11-05T14:00:00Z",
+    "updated_at": "2026-01-20T08:15:00Z"
+  },
+  {
+    "id": "kb-00000000-0003-4000-8000-000000000003",
+    "cwe_id": 287,
+    "title": "Secure JWT Verification – Preventing Algorithm Confusion",
+    "tags": ["jwt", "authentication", "algorithm-confusion", "token-validation"],
+    "summary": "JWT algorithm confusion attacks exploit libraries that accept the 'none' algorithm or allow the attacker to switch between HMAC and RSA. Always specify the expected algorithm explicitly.",
+    "fix_steps_json": {
+      "steps": [
+        "Explicitly set the allowed algorithms array to only the algorithm you sign with (e.g. ['RS256']).",
+        "Never include 'none' in the algorithms list.",
+        "Validate the 'iss' and 'aud' claims to ensure the token was issued by a trusted party.",
+        "Rotate signing keys periodically and use JWKS for key management.",
+        "Reject tokens that do not pass signature verification with a 401 response."
+      ]
+    },
+    "content": "## Overview\n\nCWE-287 (Improper Authentication) includes JWT algorithm confusion attacks where an attacker can forge tokens by exploiting permissive algorithm settings.\n\n## Recommended Fix\n\n```typescript\n// UNSAFE\njwt.verify(token, secret, { algorithms: ['none'] });\n\n// SAFE\njwt.verify(token, publicKey, { algorithms: ['RS256'], issuer: 'auth.example.com' });\n```\n\n## References\n- [Auth0: Critical vulnerabilities in JSON Web Token libraries](https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/)\n- [CWE-287](https://cwe.mitre.org/data/definitions/287.html)",
+    "source": "internal",
+    "approved": true,
+    "original_finding_id": "find-0000-0003-4000-8000-000000000003",
+    "usage_count": 6,
+    "created_at": "2025-12-10T09:30:00Z",
+    "updated_at": "2026-02-01T11:00:00Z"
+  }
+]

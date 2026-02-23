@@ -1,0 +1,38 @@
+# Universal requirements for CCV (development)
+#
+# Local editable packages (install these first to expose internal packages)
+-e ./packages/shared
+-e ./packages/api_service
+-e ./packages/mcp_server
+-e ./packages/scan_runner
+-e ./packages/analysis_agent
+-e ./packages/kb_service
+
+# Core dependencies (from package pyproject.toml files)
+google-cloud-firestore>=2.16
+google-cloud-pubsub>=2.21
+google-cloud-aiplatform>=1.50
+pydantic>=2.0,<3
+pydantic-settings>=2.0,<3
+python-dotenv>=1.0
+structlog>=24.0
+
+fastapi>=0.111,<1
+uvicorn[standard]>=0.30
+httpx>=0.27
+
+veracode-api-signing>=24.0
+defusedxml>=0.7
+
+# Google AI / ADK
+google-adk
+google-genai>=1.0
+
+# Testing / dev
+pytest
+pytest-asyncio
+
+# Optional / utils
+typing_extensions
+
+croniter

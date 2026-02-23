@@ -1,0 +1,18 @@
+[
+  {
+    "id": "art-00000000-0001-4000-8000-000000000001",
+    "scan_id": "scan-0000-0001-4000-8000-000000000001",
+    "artifact_uri": "s3://ccv-artifacts/payment-service/main/build-2847.jar",
+    "artifact_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build_tool": "maven",
+    "created_at": "2026-01-10T09:15:00Z"
+  },
+  {
+    "id": "art-00000000-0002-4000-8000-000000000002",
+    "scan_id": "scan-0000-0002-4000-8000-000000000002",
+    "artifact_uri": "s3://ccv-artifacts/auth-gateway/main/build-1204.tar.gz",
+    "artifact_sha256": "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a",
+    "build_tool": "gradle",
+    "created_at": "2026-01-12T14:30:00Z"
+  }
+]

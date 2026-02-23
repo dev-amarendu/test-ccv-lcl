@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ccv-kb-service"
+version = "0.1.0"
+description = "CCV KB Service — Fix Cards storage, embeddings, retrieval"
+requires-python = ">=3.11"
+dependencies = [
+    "ccv-shared",
+    "fastapi>=0.111,<1",
+    "uvicorn[standard]>=0.30",
+    "google-genai>=1.0",
+    "google-cloud-aiplatform>=1.50",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["kb_service"]

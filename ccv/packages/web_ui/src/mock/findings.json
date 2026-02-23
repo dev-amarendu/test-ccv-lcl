@@ -1,0 +1,134 @@
+{
+  "items": [
+    {
+      "id": "find-0000-0001-4000-8000-000000000001",
+      "scan_id": "scan-0000-0001-4000-8000-000000000001",
+      "cwe_id": 89,
+      "severity": "critical",
+      "title": "SQL Injection in payment query builder",
+      "file_path": "src/db/queries/payments.ts",
+      "line": 47,
+      "fingerprint": "sha256:aabbccdd11223344aabbccdd11223344aabbccdd11223344aabbccdd11223344",
+      "enrichment_summary": "User-supplied merchant ID is concatenated directly into a raw SQL query, allowing arbitrary SQL execution.",
+      "enrichment_confidence": 0.95,
+      "raw_source_json": { "tool": "semgrep", "rule_id": "typescript.lang.security.audit.db.sql-injection" },
+      "code_snippet_json": {
+        "lines": [
+          { "number": 45, "content": "  const merchantId = req.params.merchantId;" },
+          { "number": 46, "content": "  // WARNING: unparameterised query" },
+          { "number": 47, "content": "  const result = await db.query(`SELECT * FROM payments WHERE merchant_id = '${merchantId}'`);" },
+          { "number": 48, "content": "  return result.rows;" }
+        ]
+      },
+      "created_at": "2026-01-10T09:18:34Z"
+    },
+    {
+      "id": "find-0000-0002-4000-8000-000000000002",
+      "scan_id": "scan-0000-0001-4000-8000-000000000001",
+      "cwe_id": 79,
+      "severity": "high",
+      "title": "Reflected XSS in transaction notes renderer",
+      "file_path": "src/components/TransactionNotes.tsx",
+      "line": 23,
+      "fingerprint": "sha256:eeff0011aabb2233eeff0011aabb2233eeff0011aabb2233eeff0011aabb2233",
+      "enrichment_summary": "The `dangerouslySetInnerHTML` prop renders unsanitised user-provided transaction notes.",
+      "enrichment_confidence": 0.91,
+      "raw_source_json": { "tool": "semgrep", "rule_id": "typescript.react.security.audit.react-dangerouslysetinnerhtml" },
+      "code_snippet_json": {
+        "lines": [
+          { "number": 22, "content": "  return (" },
+          { "number": 23, "content": "    <div dangerouslySetInnerHTML={{ __html: note.content }} />" },
+          { "number": 24, "content": "  );" }
+        ]
+      },
+      "created_at": "2026-01-10T09:18:34Z"
+    },
+    {
+      "id": "find-0000-0003-4000-8000-000000000003",
+      "scan_id": "scan-0000-0002-4000-8000-000000000002",
+      "cwe_id": 287,
+      "severity": "critical",
+      "title": "Broken authentication – JWT signature not verified",
+      "file_path": "src/middleware/auth.ts",
+      "line": 15,
+      "fingerprint": "sha256:44556677889900aa44556677889900aa44556677889900aa44556677889900aa",
+      "enrichment_summary": "The JWT verification call uses `algorithms: ['none']`, allowing forged tokens.",
+      "enrichment_confidence": 0.97,
+      "raw_source_json": { "tool": "semgrep", "rule_id": "javascript.jwt.security.jwt-none-alg" },
+      "code_snippet_json": {
+        "lines": [
+          { "number": 14, "content": "  try {" },
+          { "number": 15, "content": "    const decoded = jwt.verify(token, secret, { algorithms: ['none'] });" },
+          { "number": 16, "content": "    req.user = decoded;" }
+        ]
+      },
+      "created_at": "2026-01-12T14:33:12Z"
+    },
+    {
+      "id": "find-0000-0004-4000-8000-000000000004",
+      "scan_id": "scan-0000-0002-4000-8000-000000000002",
+      "cwe_id": 522,
+      "severity": "medium",
+      "title": "Insufficiently protected credentials in config",
+      "file_path": "src/config/database.ts",
+      "line": 8,
+      "fingerprint": "sha256:bbccddee1122334455bbccddee1122334455bbccddee1122334455bbccddee11",
+      "enrichment_summary": "Database password is hardcoded as a string literal instead of being read from a secret manager or environment variable.",
+      "enrichment_confidence": 0.88,
+      "raw_source_json": { "tool": "semgrep", "rule_id": "generic.secrets.security.detected-generic-secret" },
+      "code_snippet_json": {
+        "lines": [
+          { "number": 7, "content": "export const dbConfig = {" },
+          { "number": 8, "content": "  password: 'sup3r_s3cret_passw0rd!'," },
+          { "number": 9, "content": "  host: 'db.internal.example.com'," }
+        ]
+      },
+      "created_at": "2026-01-12T14:33:12Z"
+    },
+    {
+      "id": "find-0000-0005-4000-8000-000000000005",
+      "scan_id": "scan-0000-0001-4000-8000-000000000001",
+      "cwe_id": 918,
+      "severity": "high",
+      "title": "Server-Side Request Forgery in webhook handler",
+      "file_path": "src/webhooks/handler.ts",
+      "line": 34,
+      "fingerprint": "sha256:112233445566778899001122334455667788990011223344556677889900aabb",
+      "enrichment_summary": "The callback URL from the webhook payload is fetched without validating the host against an allowlist, enabling SSRF attacks.",
+      "enrichment_confidence": 0.89,
+      "raw_source_json": { "tool": "semgrep", "rule_id": "javascript.lang.security.audit.request-ssrf" },
+      "code_snippet_json": {
+        "lines": [
+          { "number": 33, "content": "  const callbackUrl = payload.callback_url;" },
+          { "number": 34, "content": "  const response = await fetch(callbackUrl);" },
+          { "number": 35, "content": "  return response.json();" }
+        ]
+      },
+      "created_at": "2026-01-10T09:18:34Z"
+    },
+    {
+      "id": "find-0000-0006-4000-8000-000000000006",
+      "scan_id": "scan-0000-0002-4000-8000-000000000002",
+      "cwe_id": 327,
+      "severity": "low",
+      "title": "Use of weak cryptographic algorithm (MD5)",
+      "file_path": "src/utils/hash.ts",
+      "line": 12,
+      "fingerprint": "sha256:aabb00cc11dd22ee33ff44aabb00cc11dd22ee33ff44aabb00cc11dd22ee33ff",
+      "enrichment_summary": "MD5 is used for hashing user tokens. MD5 is considered cryptographically broken and should be replaced with SHA-256 or stronger.",
+      "enrichment_confidence": 0.82,
+      "raw_source_json": { "tool": "semgrep", "rule_id": "javascript.crypto.security.audit.use-of-md5" },
+      "code_snippet_json": {
+        "lines": [
+          { "number": 11, "content": "export function hashToken(token: string): string {" },
+          { "number": 12, "content": "  return crypto.createHash('md5').update(token).digest('hex');" },
+          { "number": 13, "content": "}" }
+        ]
+      },
+      "created_at": "2026-01-12T14:33:12Z"
+    }
+  ],
+  "total": 6,
+  "page": 1,
+  "page_size": 50
+}
