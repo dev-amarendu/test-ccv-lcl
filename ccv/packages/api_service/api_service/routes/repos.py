@@ -64,17 +64,16 @@ def _get_with_token(
 # ── GET / — list repos from Bitbucket ────────────────────────────────────────
 
 
-@router.get("", response_model=Dict[str, List[str]])
+@router.get("", response_model=list[RepoResponse])
 def list_repos(
     base_url: Optional[str] = Query(None, description="Bitbucket base URL, e.g. https://coxrepo.corp.cox.com/stash"),
     project: Optional[str] = Query(None, description="Project key, e.g. CCPT-DA"),
     limit: int = Query(100, ge=1, le=1000),
     insecure: bool = Query(False, description="Set true to disable SSL verification (self-signed certs)"),
-) -> Dict[str, List[str]]:
+) -> list[RepoResponse]:
     """
-    Lists repository slugs under a given Bitbucket Server/DC project.
-    Uses Bitbucket REST API: /rest/api/1.0/projects/{project}/repos
-    Handles pagination via start + nextPageStart.
+    Lists repositories under a given Bitbucket Server/DC project.
+    Returns full repo objects so the UI can populate dropdowns.
     """
     base = (base_url or os.getenv("BITBUCKET_BASE_URL") or "").rstrip("/")
     if not base:
@@ -90,7 +89,7 @@ def list_repos(
     if not token:
         raise HTTPException(status_code=500, detail="Missing BITBUCKET_TOKEN in environment/.env")
 
-    repos: List[str] = []
+    repos: List[RepoResponse] = []
     start = 0
 
     while True:
@@ -115,7 +114,15 @@ def list_repos(
         data: Dict[str, Any] = resp.json()
 
         for r in data.get("values", []):
-            repos.append(r.get("slug"))
+            slug = r.get("slug") or r.get("name") or str(r.get("id", ""))
+            repos.append(RepoResponse(
+                id=slug,
+                org_id=r.get("project", {}).get("key", proj),
+                name=r.get("name") or slug,
+                default_branch=(r.get("defaultBranch", {}) or {}).get("displayId", "") or "main",
+                connected=True,
+                created_at=r.get("createdDate"),
+            ))
 
         if data.get("isLastPage", True):
             break
@@ -124,7 +131,7 @@ def list_repos(
         if start is None:
             break
 
-    return {"repositories": repos}
+    return repos
 
 
 # ── GET /{repo_id} — single repo from Bitbucket ─────────────────────────────
