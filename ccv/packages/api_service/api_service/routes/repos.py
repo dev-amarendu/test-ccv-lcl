@@ -14,6 +14,8 @@ from fastapi import APIRouter, HTTPException, Query
 import httpx
 import os
 from typing import Optional, Dict, Any, List
+import os
+from typing import Optional, Dict, Any, List
 
 from shared.logging import get_logger
 from shared.schemas import RepoResponse
@@ -41,20 +43,28 @@ async def _get_with_token(
 
 @router.get("", response_model=dict)
 async def list_repos(
-    base_url: str = Query(..., description="Bitbucket base URL, e.g. https://bitbucket.example.com"),
-    project: str = Query(..., description="Project key, e.g. PROJ"),
+    base_url: Optional[str] = Query(None, description="Bitbucket base URL, e.g. https://bitbucket.example.com"),
+    project: Optional[str] = Query(None, description="Project key, e.g. PROJ"),
     limit: int = Query(100, ge=1, le=1000, description="Page size per Bitbucket request"),
     insecure: bool = Query(False, description="Set true to disable SSL verification (self-signed certs)"),
 ) -> dict:
     """
     List repository slugs for a given Bitbucket Server/Data Center project.
     """
-    token = os.getenv("BITBUCKET_TOKEN")
+    # resolve token and base URL (allow settings as fallback)
+    token = os.getenv("BITBUCKET_TOKEN") or get_settings().bitbucket_token
     if not token:
-        raise HTTPException(status_code=500, detail="Missing BITBUCKET_TOKEN in environment")
+        raise HTTPException(status_code=500, detail="Missing BITBUCKET_TOKEN in environment or settings")
 
-    base = base_url.rstrip("/")
-    api_url = f"{base}/rest/api/1.0/projects/{project}/repos"
+    base = (base_url or get_settings().bitbucket_base_url or "").rstrip("/")
+    if not base:
+        raise HTTPException(status_code=400, detail="Bitbucket base URL not provided via query or settings")
+
+    # if project provided, use project-scoped endpoint, otherwise list instance-wide repos
+    if project:
+        api_url = f"{base}/rest/api/1.0/projects/{project}/repos"
+    else:
+        api_url = f"{base}/rest/api/1.0/repos"
 
     repos: List[str] = []
     start = 0
