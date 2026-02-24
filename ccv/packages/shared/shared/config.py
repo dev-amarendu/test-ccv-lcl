@@ -84,6 +84,10 @@ class Settings(BaseSettings):
 
     # ── Analysis Agent ────────────────────────
     analysis_poll_interval_seconds: int = 5
+    # GCS bucket used to store large raw Veracode payloads (SCA artifacts)
+    gcs_raw_reports_bucket: str = ""
+    # Threshold (bytes) above which SCA payloads are uploaded to GCS instead of embedded in Firestore
+    sca_inline_size_limit: int = 800000
 
 
 _settings: Settings | None = None

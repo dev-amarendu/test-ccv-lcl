@@ -116,13 +116,16 @@ async def run_scan_pipeline(scan_id: str) -> None:
             "app_id": app_id,
         })
 
-        # 10. Normalize + store findings
+        # 10. Persist raw results and normalize + store findings via normalizer.
+        # This will save the vendor payload to veracode_raw_reports (or GCS)
+        # and create normalized FindingDoc documents.
         logger.info("pipeline_normalize")
-        findings = normalize_findings(scan_id, results)
-        await finding_store.batch_create(findings)
+        from scan_runner.normalizer import normalize_and_store
+
+        findings = await normalize_and_store(scan_id, results)
 
         # 11. Enqueue analysis jobs via Pub/Sub
-        logger.info("pipeline_enqueue_analysis", count=len(findings))
+        logger.info("pipeline_enqueue_analysis", count=len(findings) if findings is not None else 0)
         await enqueue_analysis_jobs(scan_id, findings)
 
         # 12. Update external_build_id

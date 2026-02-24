@@ -134,6 +134,7 @@ class FindingDoc(BaseModel):
     file_path: str
     line: int | None = None
     fingerprint: str
+    gcs_ref: dict | None = None  # Optional pointer to raw SCA in GCS: { "uri": "gs://...", "index_in_blob": 12 }
     enrichment_summary: str | None = None
     enrichment_confidence: float | None = None
     raw_source_json: dict | None = None

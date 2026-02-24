@@ -146,10 +146,57 @@ def _build_finding_message(finding: FindingDoc) -> str:
     if finding.line:
         parts.append(f"Line: {finding.line}")
 
+    # Prefer explicit code snippet if present
+    snippet = None
     if finding.code_snippet_json:
         snippet = finding.code_snippet_json.get("snippet", "")
-        if snippet:
-            parts.append(f"\nCode context:\n```\n{snippet}\n```")
+
+    # Fallback: try to extract snippet from raw_source_json (vendor payload)
+    if not snippet and finding.raw_source_json:
+        # common vendor keys that might contain snippet text
+        snippet = (
+            finding.raw_source_json.get("code_snippet")
+            or finding.raw_source_json.get("snippet")
+            or finding.raw_source_json.get("finding_details", {}).get("snippet")
+        )
+
+    # Fallback 2: if finding references a GCS raw SCA blob, download and extract the indexed item
+    if not snippet and getattr(finding, "gcs_ref", None):
+        try:
+            from google.cloud import storage
+            import json
+
+            gcs_ref = finding.gcs_ref
+            uri = gcs_ref.get("uri")
+            idx = gcs_ref.get("index_in_blob")
+            if uri and idx is not None:
+                # Simple synchronous download in a thread to avoid blocking event loop
+                async def _download_and_extract():
+                    def _download():
+                        parts = uri.replace("gs://", "").split("/", 1)
+                        bucket_name, blob_name = parts[0], parts[1]
+                        client = storage.Client()
+                        blob = client.bucket(bucket_name).blob(blob_name)
+                        raw = blob.download_as_text()
+                        return raw
+
+                    raw_text = await asyncio.to_thread(_download)
+                    arr = json.loads(raw_text)
+                    if isinstance(arr, list) and 0 <= int(idx) < len(arr):
+                        item = arr[int(idx)]
+                        return (
+                            item.get("code_snippet")
+                            or item.get("snippet")
+                            or item.get("finding_details", {}).get("snippet")
+                        )
+                    return None
+
+                snippet = asyncio.get_event_loop().run_until_complete(_download_and_extract())
+        except Exception:
+            logger.debug("gcs_snippet_fetch_failed", finding_id=finding.id, exc_info=True)
+
+    if snippet:
+        parts.append(f"\nCode context:\n```\n{snippet}\n```")
 
     return "\n".join(parts)
 
@@ -178,6 +225,48 @@ async def analyze_finding(finding_id: str) -> None:
     if existing:
         logger.info("analysis_already_exists", finding_id=finding_id)
         return
+
+    # Ensure we have a code snippet for context: try raw_source_json, otherwise fetch from GCS if referenced.
+    if not finding.code_snippet_json or not finding.code_snippet_json.get("snippet"):
+        # Attempt to extract small snippet from raw_source_json
+        snippet = None
+        if finding.raw_source_json:
+            snippet = (
+                finding.raw_source_json.get("code_snippet")
+                or finding.raw_source_json.get("snippet")
+                or finding.raw_source_json.get("finding_details", {}).get("snippet")
+            )
+        # If still not found and we have a gcs_ref, download the SCA blob and extract by index
+        if not snippet and getattr(finding, "gcs_ref", None):
+            try:
+                from google.cloud import storage
+                import json
+
+                gcs_ref = finding.gcs_ref
+                uri = gcs_ref.get("uri")
+                idx = gcs_ref.get("index_in_blob")
+                if uri and idx is not None:
+                    def _download():
+                        parts = uri.replace("gs://", "").split("/", 1)
+                        bucket_name, blob_name = parts[0], parts[1]
+                        client = storage.Client()
+                        blob = client.bucket(bucket_name).blob(blob_name)
+                        return blob.download_as_text()
+
+                    raw_text = await asyncio.to_thread(_download)
+                    arr = json.loads(raw_text)
+                    if isinstance(arr, list) and 0 <= int(idx) < len(arr):
+                        item = arr[int(idx)]
+                        snippet = (
+                            item.get("code_snippet")
+                            or item.get("snippet")
+                            or item.get("finding_details", {}).get("snippet")
+                        )
+            except Exception:
+                logger.debug("gcs_snippet_fetch_failed", finding_id=finding.id, exc_info=True)
+
+        if snippet:
+            finding.code_snippet_json = {"snippet": snippet}
 
     # ── Run the ADK Agent ─────────────────────────────────────────────────
     logger.info("adk_agent_starting", finding_id=finding_id)

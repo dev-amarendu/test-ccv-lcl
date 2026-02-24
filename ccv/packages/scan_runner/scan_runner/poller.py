@@ -134,11 +134,14 @@ async def run_sync_once() -> int:
             })
             continue
 
-        # Normalise and store findings
-        findings = normalize_findings(scan_id, results)
-        await finding_store.batch_create(findings)
+        # Persist raw results and normalize via the new normalizer worker.
+        # This writes a veracode_raw_reports doc (with sca uploaded to GCS if large)
+        # and creates normalized FindingDoc entries in the `findings` collection.
+        from scan_runner.normalizer import normalize_and_store
 
-        # Enqueue ANALYZE_FINDING messages
+        findings = await normalize_and_store(scan_id, results)
+
+        # Enqueue ANALYZE_FINDING messages for created findings
         await enqueue_analysis_jobs(scan_id, findings)
 
         # Mark scan as completed
@@ -149,7 +152,7 @@ async def run_sync_once() -> int:
 
         logger.info(
             "veracode_sync_scan_complete", scan_id=scan_id,
-            build_id=build_id, findings=len(findings),
+            build_id=build_id, findings=len(findings) if findings is not None else 0,
         )
 
         newest_build_id = build_id
