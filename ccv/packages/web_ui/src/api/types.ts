@@ -21,7 +21,6 @@ export interface Repo {
   name: string;
   default_branch: string;
   connected: boolean;
-  created_at: string;
 }
 
 export interface Branch {
