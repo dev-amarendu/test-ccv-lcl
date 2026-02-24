@@ -59,8 +59,8 @@ async def _get_with_token(
 
 @router.get("", response_model=dict)
 async def list_repos(
-    base_url: str = Query(..., description="Bitbucket base URL, e.g. https://bitbucket.example.com"),
-    project: str = Query(..., description="Project key, e.g. PROJ"),
+    base_url: Optional[str] = Query(None, description="Bitbucket base URL, e.g. https://bitbucket.example.com"),
+    project: Optional[str] = Query(None, description="Project key, e.g. PROJ"),
     limit: int = Query(100, ge=1, le=1000, description="Page size per Bitbucket request"),
     insecure: bool = Query(False, description="Set true to disable SSL verification (self-signed certs)"),
 ) -> dict:
@@ -71,8 +71,10 @@ async def list_repos(
     if not token:
         raise HTTPException(status_code=500, detail="Missing BITBUCKET_TOKEN in environment")
 
-    base = base_url.rstrip("/")
-    api_url = f"{base}/rest/api/1.0/projects/{project}/repos"
+    base = (base_url or os.getenv("BITBUCKET_BASE_URL") or "").rstrip("/")
+    if not base:
+        raise HTTPException(status_code=400, detail="Bitbucket base URL not provided via query or BITBUCKET_BASE_URL")
+    api_url = f"{base}/rest/api/1.0/projects/{project}/repos" if project else f"{base}/rest/api/1.0/repos"
 
     repos: List[str] = []
     start = 0
@@ -105,7 +107,7 @@ async def list_repos(
 @router.get("/{repo_id}", response_model=RepoResponse)
 async def get_repo(
     repo_id: str,
-    base_url: str = Query(..., description="Bitbucket base URL, e.g. https://bitbucket.example.com"),
+    base_url: Optional[str] = Query(None, description="Bitbucket base URL, e.g. https://bitbucket.example.com"),
     insecure: bool = Query(False, description="Set true to disable SSL verification (self-signed certs)"),
 ) -> RepoResponse:
     """
@@ -115,7 +117,9 @@ async def get_repo(
     token = os.getenv("BITBUCKET_TOKEN")
     if not token:
         raise HTTPException(status_code=500, detail="Missing BITBUCKET_TOKEN in environment")
-    base = base_url.rstrip("/")
+    base = (base_url or os.getenv("BITBUCKET_BASE_URL") or "").rstrip("/")
+    if not base:
+        raise HTTPException(status_code=400, detail="Bitbucket base URL not provided via query or BITBUCKET_BASE_URL")
     verify = not insecure
 
     # If repo_id is provided as "PROJECT/slug", use the project-specific endpoint
