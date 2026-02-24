@@ -34,8 +34,6 @@ def _schedule_response(s: ScheduleDoc) -> ScheduleResponse:
     return ScheduleResponse(
         id=s.id, repo_id=s.repo_id, branch=s.branch,
         artifact_mode=s.artifact_mode.value,
-        artifact_uri=s.artifact_uri,
-        artifact_uri=s.artifact_uri,
         interval_minutes=s.interval_minutes,
         cron_expression=s.cron_expression,
         enabled=s.enabled, next_run_at=s.next_run_at,
@@ -72,7 +70,7 @@ async def create_schedule(
         repo_id=str(body.repo_id),
         branch=body.branch,
         artifact_mode=body.artifact_mode.value,
-        artifact_uri=body.artifact_uri,
+        # artifact_uri intentionally ignored server-side (frontend no longer supplies artifact URIs)
         interval_minutes=body.interval_minutes,
         cron_expression=body.cron_expression,
         enabled=True,
@@ -122,6 +120,8 @@ async def update_schedule(
     for key, value in update_data.items():
         if hasattr(value, "value"):
             update_data[key] = value.value
+    # Ignore artifact_uri updates from frontend — artifact handling moved to server/runner
+    update_data.pop("artifact_uri", None)
 
     await schedule_store.update_schedule(schedule_id, update_data)
 

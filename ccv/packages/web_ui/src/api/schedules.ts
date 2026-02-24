@@ -38,7 +38,7 @@ export async function createSchedule(
         repo_id: req.repo_id,
         branch: req.branch,
         artifact_mode: req.artifact_mode,
-        artifact_uri: req.artifact_uri ?? null,
+        // artifact_uri removed from frontend model — keep metadata minimal
         interval_minutes: req.interval_minutes,
         enabled: req.enabled ?? true,
         next_run_at: null,

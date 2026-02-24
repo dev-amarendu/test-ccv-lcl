@@ -32,7 +32,6 @@ export interface Branch {
 export interface Artifact {
   id: string;
   scan_id: string;
-  artifact_uri: string;
   artifact_sha256: string;
   build_tool: string;
   created_at: string;
@@ -91,7 +90,6 @@ export interface Schedule {
   repo_id: string;
   branch: string;
   artifact_mode: ArtifactMode;
-  artifact_uri?: string | null;
   interval_minutes: number;
   enabled: boolean;
   next_run_at?: string | null;
@@ -154,7 +152,6 @@ export interface CreateScheduleRequest {
   repo_id: string;
   branch: string;
   artifact_mode: ArtifactMode;
-  artifact_uri?: string;
   interval_minutes: number;
   enabled?: boolean;
 }
@@ -162,7 +159,6 @@ export interface CreateScheduleRequest {
 export interface UpdateScheduleRequest {
   branch?: string;
   artifact_mode?: ArtifactMode;
-  artifact_uri?: string | null;
   interval_minutes?: number;
   enabled?: boolean;
 }
