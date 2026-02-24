@@ -13,13 +13,31 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 import httpx
 import os
+from dotenv import load_dotenv
 from typing import Optional, Dict, Any, List
 
 from shared.logging import get_logger
 from shared.schemas import RepoResponse
 
+load_dotenv()  # load .env from project root for local/dev
+
 router = APIRouter(prefix="/repos", tags=["repos"])
 logger = get_logger(__name__)
+
+# Debug: log presence of Bitbucket settings (masked token)
+_bb_token = os.getenv("BITBUCKET_TOKEN")
+if _bb_token:
+    _masked = _bb_token if len(_bb_token) <= 8 else f"{_bb_token[:4]}...{_bb_token[-4:]}"
+    logger.info("BITBUCKET_TOKEN loaded (masked)=%s", _masked)
+else:
+    logger.warning("BITBUCKET_TOKEN not found in environment")
+
+# Debug: log BITBUCKET_BASE_URL if present
+_bb_base = os.getenv("BITBUCKET_BASE_URL")
+if _bb_base:
+    logger.info("BITBUCKET_BASE_URL=%s", _bb_base)
+else:
+    logger.info("BITBUCKET_BASE_URL not set in environment")
 
 
 async def _get_with_token(
