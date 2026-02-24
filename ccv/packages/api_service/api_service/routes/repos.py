@@ -17,10 +17,22 @@ from dotenv import load_dotenv
 from shared.logging import get_logger
 from shared.schemas import RepoResponse
 
+from datetime import datetime, timezone
+
 load_dotenv()
 
 router = APIRouter(prefix="/repos", tags=["repos"])
 logger = get_logger(__name__)
+
+
+def _parse_bitbucket_date(value) -> datetime | None:
+    """Convert Bitbucket's epoch-millisecond timestamp to datetime, or return None."""
+    if value is None:
+        return None
+    try:
+        return datetime.fromtimestamp(int(value) / 1000, tz=timezone.utc)
+    except (ValueError, TypeError, OSError):
+        return None
 
 
 def _make_headers(token: str, scheme: str) -> dict:
@@ -121,7 +133,7 @@ def list_repos(
                 name=r.get("name") or slug,
                 default_branch=(r.get("defaultBranch", {}) or {}).get("displayId", "") or "main",
                 connected=True,
-                created_at=r.get("createdDate"),
+                created_at=_parse_bitbucket_date(r.get("createdDate")),
             ))
 
         if data.get("isLastPage", True):
@@ -168,9 +180,9 @@ def get_repo(
                 id=repo_id_val,
                 org_id=r.get("project", {}).get("key", "bitbucket"),
                 name=r.get("name") or repo_id_val,
-                default_branch=r.get("defaultBranch", {}).get("displayId", "") or "main",
+                default_branch=(r.get("defaultBranch") or {}).get("displayId", "") or "main",
                 connected=True,
-                created_at=r.get("createdDate"),
+                created_at=_parse_bitbucket_date(r.get("createdDate")),
             )
         raise HTTPException(status_code=404, detail="Repo not found in Bitbucket")
 
@@ -190,8 +202,8 @@ def get_repo(
                 id=repo_id_val,
                 org_id=r.get("project", {}).get("key", "bitbucket"),
                 name=r.get("name") or repo_id_val,
-                default_branch=r.get("defaultBranch", {}).get("displayId", "") or "main",
+                default_branch=(r.get("defaultBranch") or {}).get("displayId", "") or "main",
                 connected=True,
-                created_at=r.get("createdDate"),
+                created_at=_parse_bitbucket_date(r.get("createdDate")),
             )
     raise HTTPException(status_code=404, detail="Repo not found")
