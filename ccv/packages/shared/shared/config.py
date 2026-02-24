@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     # ── Bitbucket (optional) ──────────────────
     bitbucket_enabled: bool = False
     bitbucket_base_url: str = ""
+    bitbucket_project: str = ""
     bitbucket_token: str = ""
 
     # ── Git / Repo Fetcher ────────────────────
