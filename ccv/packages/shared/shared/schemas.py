@@ -40,7 +40,7 @@ class RepoResponse(BaseModel):
     name: str
     default_branch: str
     connected: bool
-    created_at: datetime
+    created_at: datetime | None = None
     model_config = {"from_attributes": True}
 
 
