@@ -28,7 +28,6 @@ export default function ManualScanPage() {
   const [repoId, setRepoId] = useState('');
   const [branch, setBranch] = useState('');
   const [artifactUri, setArtifactUri] = useState('');
-  const [scanType, setScanType] = useState('full');
 
   /* Validation state */
   const [touched, setTouched] = useState<{ repo: boolean; branch: boolean }>({ repo: false, branch: false });
@@ -168,18 +167,6 @@ export default function ManualScanPage() {
             hint="Leave blank to use the latest build artifact, if available."
           />
 
-          {/* Scan type */}
-          <Select
-            label="Scan Type"
-            options={[
-              { value: 'full', label: 'Full Scan' },
-              { value: 'incremental', label: 'Incremental Scan' },
-              { value: 'sast_only', label: 'SAST Only' },
-              { value: 'sca_only', label: 'SCA Only' },
-            ]}
-            value={scanType}
-            onChange={(e) => setScanType(e.target.value)}
-          />
 
           {/* Estimated time */}
           <div
