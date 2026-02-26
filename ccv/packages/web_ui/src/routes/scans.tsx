@@ -22,12 +22,10 @@ import { useToast } from '@/components/ui/toast';
 import { Table, type Column } from '@/components/ui/table';
 
 import { fetchScans, rerunScan } from '@/api/scans';
-import { fetchRepos } from '@/api/repos';
 import type {
   Scan,
   ScanStatus,
   TriggerType,
-  Repo,
   ScanFilters,
 } from '@/api/types';
 
@@ -75,7 +73,6 @@ export default function ScansPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scans, setScans] = useState<Scan[]>([]);
-  const [repos, setRepos] = useState<Repo[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [rerunning, setRerunning] = useState<string | null>(null);
 
@@ -97,11 +94,7 @@ export default function ScansPage() {
       if (filterStatus) filters.status = filterStatus as ScanStatus;
       if (filterTrigger) filters.trigger_type = filterTrigger as TriggerType;
 
-      const [scansRes, reposRes] = await Promise.all([
-        fetchScans(filters),
-        fetchRepos(),
-      ]);
-
+      const scansRes = await fetchScans(filters);
       let items = scansRes.items;
       if (filterDateFrom) {
         const from = new Date(filterDateFrom).getTime();
@@ -113,7 +106,6 @@ export default function ScansPage() {
       }
 
       setScans(items);
-      setRepos(reposRes);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load scans');
     } finally {
@@ -147,9 +139,9 @@ export default function ScansPage() {
     return Math.min(95, Math.round((elapsed / estimated) * 100));
   }
 
-  /* ── Repo name lookup ── */
+  /* ── Repo name lookup — disabled as module is removed ── */
   function repoName(id: string): string {
-    return repos.find((r) => r.id === id)?.name ?? id;
+    return id;
   }
 
   /* ── Table columns ── */
@@ -261,9 +253,9 @@ export default function ScansPage() {
       <Card padding="sm">
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
           <Filter size={16} style={{ color: 'var(--color-neutral-400)', marginBottom: 8 }} />
-          <Select
-            label="Repo"
-            options={[{ value: '', label: 'All Repos' }, ...repos.map((r) => ({ value: r.id, label: r.name }))]}
+          <Input
+            label="Repo Slug"
+            placeholder="e.g. my-app"
             value={filterRepo}
             onChange={(e) => setFilterRepo(e.target.value)}
             wrapperStyle={{ minWidth: 150 }}

@@ -24,14 +24,6 @@ import { fetchKBCards } from '@/api/knowledge';
 import type { Scan, Finding, KBFixCard, ScanStatus } from '@/api/types';
 
 /* ── Severity display helper ── */
-const severityLabel: Record<string, string> = {
-  critical: 'Critical',
-  high: 'High',
-  medium: 'Medium',
-  low: 'Low',
-  info: 'Info',
-};
-
 /* ── Status badge variant mapping ── */
 function statusBadge(status: ScanStatus) {
   const map: Record<ScanStatus, { variant: 'success' | 'danger' | 'warning' | 'info' | 'default'; label: string }> = {

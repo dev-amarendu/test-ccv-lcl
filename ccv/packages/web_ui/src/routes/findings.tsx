@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search,
   Eye,
   Copy,
   Filter,
@@ -19,8 +18,7 @@ import { Table, type Column } from '@/components/ui/table';
 import { SeverityBadge, type Severity } from '@/components/severity_badge';
 
 import { fetchFindings } from '@/api/findings';
-import { fetchRepos } from '@/api/repos';
-import type { Finding, FindingFilters, Repo, Severity as SeverityType } from '@/api/types';
+import type { Finding, FindingFilters, Severity as SeverityType } from '@/api/types';
 
 /* ── Severity display mapping ── */
 const severityDisplayMap: Record<SeverityType, Severity> = {
@@ -52,12 +50,10 @@ export default function FindingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
-  const [repos, setRepos] = useState<Repo[]>([]);
   const [total, setTotal] = useState(0);
 
   /* Filters */
   const [filterSeverity, setFilterSeverity] = useState('');
-  const [filterRepo, setFilterRepo] = useState('');
   const [filterFilePath, setFilterFilePath] = useState('');
   const [filterSearch, setFilterSearch] = useState('');
   const [filterConfMin, setFilterConfMin] = useState('');
@@ -70,39 +66,34 @@ export default function FindingsPage() {
       const filters: FindingFilters = { page: 1, page_size: 50 };
       if (filterSeverity) filters.severity = filterSeverity as SeverityType;
 
-      const [findingsRes, reposRes] = await Promise.all([
-        fetchFindings(filters),
-        fetchRepos(),
-      ]);
-
+      const findingsRes = await fetchFindings(filters);
       let items = findingsRes.items;
 
       /* Client-side filtering for fields not in API filter */
       if (filterFilePath) {
-        items = items.filter((f) =>
+        items = items.filter((f: Finding) =>
           f.file_path.toLowerCase().includes(filterFilePath.toLowerCase()),
         );
       }
       if (filterSearch) {
         const q = filterSearch.toLowerCase();
         items = items.filter(
-          (f) =>
+          (f: Finding) =>
             f.title.toLowerCase().includes(q) ||
             f.fingerprint.toLowerCase().includes(q),
         );
       }
       if (filterConfMin) {
         const min = parseFloat(filterConfMin);
-        if (!isNaN(min)) items = items.filter((f) => (f.enrichment_confidence ?? 0) >= min);
+        if (!isNaN(min)) items = items.filter((f: Finding) => (f.enrichment_confidence ?? 0) >= min);
       }
       if (filterConfMax) {
         const max = parseFloat(filterConfMax);
-        if (!isNaN(max)) items = items.filter((f) => (f.enrichment_confidence ?? 1) <= max);
+        if (!isNaN(max)) items = items.filter((f: Finding) => (f.enrichment_confidence ?? 1) <= max);
       }
 
       setFindings(items);
       setTotal(findingsRes.total);
-      setRepos(reposRes);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load findings');
     } finally {

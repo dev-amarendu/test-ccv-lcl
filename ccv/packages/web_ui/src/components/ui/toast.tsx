@@ -30,14 +30,14 @@ const typeConfig: Record<ToastType, { bg: string; border: string; icon: typeof C
 function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: (id: string) => void }) {
   const cfg = typeConfig[toast.type];
   const Icon = cfg.icon;
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const duration = toast.duration ?? 5000;
     if (duration > 0) {
       timerRef.current = setTimeout(() => onDismiss(toast.id), duration);
     }
-    return () => clearTimeout(timerRef.current);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current as any); };
   }, [toast.id, toast.duration, onDismiss]);
 
   const itemStyle: CSSProperties = {

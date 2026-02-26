@@ -22,7 +22,7 @@ function getEnvStyle() {
 }
 
 /* ── Component ── */
-export function Header({ onMenuToggle, className }: HeaderProps) {
+export function Header({ className }: HeaderProps) {
   const { env, bg, text } = getEnvStyle();
 
   return (

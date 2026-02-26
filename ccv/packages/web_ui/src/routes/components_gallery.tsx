@@ -1,12 +1,9 @@
 import { useState } from 'react';
 import {
   Star,
-  Heart,
-  Settings,
-  Info,
-  AlertTriangle,
   CheckCircle,
-  Loader2,
+  AlertTriangle,
+  Info,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -157,9 +154,9 @@ export default function ComponentsGalleryPage() {
             value={inputVal}
             onChange={(e) => setInputVal(e.target.value)}
           />
-          <Input label="With Error" value="bad value" error="This field is invalid" onChange={() => {}} />
-          <Input label="With Hint" value="" hint="This is a helpful hint." onChange={() => {}} />
-          <Input label="Disabled" value="Cannot edit" disabled onChange={() => {}} />
+          <Input label="With Error" value="bad value" error="This field is invalid" onChange={() => { }} />
+          <Input label="With Hint" value="" hint="This is a helpful hint." onChange={() => { }} />
+          <Input label="Disabled" value="Cannot edit" disabled onChange={() => { }} />
         </div>
       </Section>
 
@@ -184,14 +181,14 @@ export default function ComponentsGalleryPage() {
               { value: 'b', label: 'Bravo' },
             ]}
             value=""
-            onChange={() => {}}
+            onChange={() => { }}
           />
           <Select
             label="With Error"
             options={[{ value: 'x', label: 'X' }]}
             value="x"
             error="Invalid selection"
-            onChange={() => {}}
+            onChange={() => { }}
           />
         </div>
       </Section>
@@ -309,8 +306,8 @@ export default function ComponentsGalleryPage() {
       <Section title="Switch">
         <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', alignItems: 'center' }}>
           <Switch checked={switchOn} onChange={setSwitchOn} label={switchOn ? 'On' : 'Off'} />
-          <Switch checked={true} onChange={() => {}} label="Always On" />
-          <Switch checked={false} onChange={() => {}} label="Disabled" disabled />
+          <Switch checked={true} onChange={() => { }} label="Always On" />
+          <Switch checked={false} onChange={() => { }} label="Disabled" disabled />
         </div>
       </Section>
 

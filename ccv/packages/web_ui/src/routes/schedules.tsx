@@ -11,7 +11,6 @@ import {
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -19,7 +18,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { Table, type Column } from '@/components/ui/table';
 
-import { fetchRepos } from '@/api/repos';
 import { fetchBranches } from '@/api/branches';
 import {
   fetchSchedules,
@@ -28,7 +26,7 @@ import {
   deleteSchedule,
   runScheduleNow,
 } from '@/api/schedules';
-import type { Repo, Branch, Schedule, ArtifactMode } from '@/api/types';
+import type { Branch, Schedule, ArtifactMode } from '@/api/types';
 
 /* ── Row type ── */
 interface ScheduleRow extends Record<string, unknown> {
@@ -48,11 +46,10 @@ export default function SchedulesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [repos, setRepos] = useState<Repo[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
 
   /* Form state */
-  const [formRepoId, setFormRepoId] = useState('');
+  const [formRepoSlug, setFormRepoSlug] = useState('');
   const [formBranch, setFormBranch] = useState('');
   const [formArtifactMode, setFormArtifactMode] = useState<ArtifactMode>('none');
   const [formInterval, setFormInterval] = useState('60');
@@ -66,13 +63,9 @@ export default function SchedulesPage() {
     let cancelled = false;
     async function load() {
       try {
-        const [schedulesRes, reposRes] = await Promise.all([
-          fetchSchedules(),
-          fetchRepos(),
-        ]);
+        const schedulesRes = await fetchSchedules();
         if (!cancelled) {
           setSchedules(schedulesRes);
-          setRepos(reposRes);
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load schedules');
@@ -86,7 +79,7 @@ export default function SchedulesPage() {
 
   /* Load branches when repo changes */
   useEffect(() => {
-    if (!formRepoId) {
+    if (!formRepoSlug) {
       setBranches([]);
       setFormBranch('');
       return;
@@ -94,7 +87,7 @@ export default function SchedulesPage() {
     let cancelled = false;
     async function load() {
       try {
-        const data = await fetchBranches(formRepoId);
+        const data = await fetchBranches(formRepoSlug);
         if (!cancelled) {
           setBranches(data);
           const def = data.find((b) => b.is_default);
@@ -106,26 +99,26 @@ export default function SchedulesPage() {
     }
     load();
     return () => { cancelled = true; };
-  }, [formRepoId]);
+  }, [formRepoSlug]);
 
   /* Create schedule */
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
-    if (!formRepoId || !formBranch) {
+    if (!formRepoSlug || !formBranch) {
       toast('warning', 'Repository and branch are required');
       return;
     }
     setSubmitting(true);
     try {
       const s = await createSchedule({
-        repo_id: formRepoId,
+        repo_id: formRepoSlug,
         branch: formBranch,
         artifact_mode: formArtifactMode,
         interval_minutes: parseInt(formInterval, 10) || 60,
         enabled: true,
       });
       setSchedules((prev) => [s, ...prev]);
-      setFormRepoId('');
+      setFormRepoSlug('');
       setFormBranch('');
       setFormInterval('60');
       toast('success', 'Schedule created');
@@ -174,9 +167,9 @@ export default function SchedulesPage() {
     }
   }
 
-  /* Repo name */
+  /* Repo name — disabled as module is removed */
   function repoName(id: string): string {
-    return repos.find((r) => r.id === id)?.name ?? id;
+    return id;
   }
 
   const intervalMinutes = parseInt(formInterval, 10);
@@ -267,20 +260,19 @@ export default function SchedulesPage() {
       <Card title="Create Schedule">
         <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
-            <Select
-              label="Repository *"
-              placeholder="Select repo"
-              options={repos.map((r) => ({ value: r.id, label: r.name }))}
-              value={formRepoId}
-              onChange={(e) => setFormRepoId(e.target.value)}
+            <Input
+              label="Repository Slug *"
+              placeholder="e.g. my-app"
+              value={formRepoSlug}
+              onChange={(e) => setFormRepoSlug(e.target.value)}
             />
             <Select
               label="Branch *"
-              placeholder={formRepoId ? 'Select branch' : 'Select a repo first'}
+              placeholder={formRepoSlug ? 'Select branch' : 'Enter repo slug first'}
               options={branches.map((b) => ({ value: b.name, label: b.name }))}
               value={formBranch}
               onChange={(e) => setFormBranch(e.target.value)}
-              disabled={!formRepoId}
+              disabled={!formRepoSlug}
             />
             <Select
               label="Artifact Mode"

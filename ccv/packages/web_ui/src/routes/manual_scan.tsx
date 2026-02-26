@@ -9,49 +9,34 @@ import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 
-import { fetchRepos } from '@/api/repos';
 import { fetchBranches } from '@/api/branches';
 import { triggerManualScan } from '@/api/scans';
-import type { Repo, Branch } from '@/api/types';
+import type { Branch } from '@/api/types';
 
 export default function ManualScanPage() {
   const navigate = useNavigate();
   const { toast, ToastContainer } = useToast();
 
   /* Data state */
-  const [repos, setRepos] = useState<Repo[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   /* Form state */
-  const [repoId, setRepoId] = useState('');
+  const [repoSlug, setRepoSlug] = useState('');
   const [branch, setBranch] = useState('');
-  const [artifactUri, setArtifactUri] = useState('');
 
   /* Validation state */
   const [touched, setTouched] = useState<{ repo: boolean; branch: boolean }>({ repo: false, branch: false });
 
-  /* Load repos */
+  /* Skip repo loading for now, user enters slug manually */
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const data = await fetchRepos();
-        if (!cancelled) setRepos(data);
-      } catch {
-        // silently fall back
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    load();
-    return () => { cancelled = true; };
+    setLoading(false);
   }, []);
 
   /* Load branches when repo changes */
   useEffect(() => {
-    if (!repoId) {
+    if (!repoSlug) {
       setBranches([]);
       setBranch('');
       return;
@@ -60,7 +45,7 @@ export default function ManualScanPage() {
     let cancelled = false;
     async function load() {
       try {
-        const data = await fetchBranches(repoId);
+        const data = await fetchBranches(repoSlug);
         if (!cancelled) {
           setBranches(data);
           const defaultBranch = data.find((b) => b.is_default);
@@ -72,12 +57,12 @@ export default function ManualScanPage() {
     }
     load();
     return () => { cancelled = true; };
-  }, [repoId]);
+  }, [repoSlug]);
 
   /* Validation */
-  const repoError = touched.repo && !repoId ? 'Repository is required' : undefined;
+  const repoError = touched.repo && !repoSlug ? 'Repository is required' : undefined;
   const branchError = touched.branch && !branch ? 'Branch is required' : undefined;
-  const isValid = !!repoId && !!branch;
+  const isValid = !!repoSlug && !!branch;
 
   /* Submit */
   async function handleSubmit(e: FormEvent) {
@@ -89,7 +74,7 @@ export default function ManualScanPage() {
     setSubmitting(true);
     try {
       const scan = await triggerManualScan({
-        repo_id: repoId,
+        repo_id: repoSlug,
         branch,
         commit_sha: undefined,
       });
@@ -131,14 +116,13 @@ export default function ManualScanPage() {
 
       <Card>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          {/* Repo select */}
-          <Select
-            label="Repository *"
-            placeholder="Select a repository"
-            options={repos.map((r) => ({ value: r.id, label: r.name }))}
-            value={repoId}
+          {/* Repo slug input */}
+          <Input
+            label="Repository Slug *"
+            placeholder="e.g. my-java-app"
+            value={repoSlug}
             onChange={(e) => {
-              setRepoId(e.target.value);
+              setRepoSlug(e.target.value);
               setTouched((t) => ({ ...t, repo: true }));
             }}
             error={repoError}
@@ -147,7 +131,7 @@ export default function ManualScanPage() {
           {/* Branch select */}
           <Select
             label="Branch *"
-            placeholder={repoId ? 'Select a branch' : 'Select a repository first'}
+            placeholder={repoSlug ? 'Select a branch' : 'Enter repository slug first'}
             options={branches.map((b) => ({ value: b.name, label: `${b.name}${b.is_default ? ' (default)' : ''}` }))}
             value={branch}
             onChange={(e) => {
@@ -155,16 +139,7 @@ export default function ManualScanPage() {
               setTouched((t) => ({ ...t, branch: true }));
             }}
             error={branchError}
-            disabled={!repoId}
-          />
-
-          {/* Artifact URI */}
-          <Input
-            label="Artifact URI (optional)"
-            placeholder="e.g. s3://bucket/path/artifact.tar.gz"
-            value={artifactUri}
-            onChange={(e) => setArtifactUri(e.target.value)}
-            hint="Leave blank to use the latest build artifact, if available."
+            disabled={!repoSlug}
           />
 
 
