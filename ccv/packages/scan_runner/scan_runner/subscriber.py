@@ -17,6 +17,7 @@ import threading
 from google.cloud import pubsub_v1
 
 from shared.config import get_settings
+from shared.gcp_auth import get_credentials
 from shared.logging import get_logger, setup_logging
 
 from scan_runner.runner import execute_scan
@@ -61,7 +62,11 @@ def main() -> None:
     topic_name = settings.pubsub_topic_run_scan  # "ccv-run-scan"
     subscription_name = os.getenv("PUBSUB_RUN_SCAN_SUBSCRIPTION", f"{topic_name}-sub")
 
-    subscriber = pubsub_v1.SubscriberClient()
+    credentials = get_credentials()
+    if credentials:
+        subscriber = pubsub_v1.SubscriberClient(credentials=credentials)
+    else:
+        subscriber = pubsub_v1.SubscriberClient()
     subscription_path = subscriber.subscription_path(project_id, subscription_name)
 
     logger.info(

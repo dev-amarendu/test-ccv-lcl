@@ -9,6 +9,7 @@ from typing import Any
 from google.cloud import pubsub_v1
 
 from shared.config import get_settings
+from shared.gcp_auth import get_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,11 @@ def get_publisher() -> pubsub_v1.PublisherClient:
     """Return a cached Pub/Sub publisher client."""
     global _publisher
     if _publisher is None:
-        _publisher = pubsub_v1.PublisherClient()
+        credentials = get_credentials()
+        if credentials:
+            _publisher = pubsub_v1.PublisherClient(credentials=credentials)
+        else:
+            _publisher = pubsub_v1.PublisherClient()
     return _publisher
 
 

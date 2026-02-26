@@ -1,0 +1,51 @@
+# ── Python ────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+venv/
+*.whl
+
+# ── Node ──────────────────────────────────────
+node_modules/
+.npm
+.pnp.*
+
+# ── Environment & Secrets (CRITICAL) ─────────
+.env
+.env.*
+!.env.example
+secrets/
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.*.json
+!vite.config.json
+!components.json
+
+# ── Service Account Keys (NEVER commit) ──────
+*-sa-key.json
+*-service-account.json
+*-credentials.json
+service-account*.json
+sa-key*.json
+
+# ── IDE ───────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Build artifacts ───────────────────────────
+*.log
+.cache/
+.parcel-cache/
