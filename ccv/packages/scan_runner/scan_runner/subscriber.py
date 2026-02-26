@@ -12,7 +12,8 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import concurrent.futures
+import signal
+import sys
 
 from google.cloud import pubsub_v1
 
@@ -24,25 +25,16 @@ from scan_runner.runner import execute_scan
 
 logger = get_logger(__name__)
 
-# Single event loop running in a background thread — all async work goes here
+# Single persistent event loop for all async work
 _loop: asyncio.AbstractEventLoop | None = None
-_executor: concurrent.futures.ThreadPoolExecutor | None = None
 
 
 def _get_loop() -> asyncio.AbstractEventLoop:
-    """Return a persistent event loop running in a background thread."""
-    global _loop, _executor
+    """Return a persistent event loop (created once, reused for all messages)."""
+    global _loop
     if _loop is None or _loop.is_closed():
         _loop = asyncio.new_event_loop()
-        _executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        _executor.submit(_run_loop, _loop)
     return _loop
-
-
-def _run_loop(loop: asyncio.AbstractEventLoop) -> None:
-    """Run the event loop forever in a background thread."""
-    asyncio.set_event_loop(loop)
-    loop.run_forever()
 
 
 def _callback(message: pubsub_v1.subscriber.message.Message) -> None:
@@ -58,19 +50,16 @@ def _callback(message: pubsub_v1.subscriber.message.Message) -> None:
 
         logger.info("pubsub_message_received", scan_id=scan_id)
 
-        # Submit the async work to the persistent event loop
+        # Run async scan on the persistent event loop (blocking is fine —
+        # Pub/Sub subscriber uses its own thread pool for callbacks)
         loop = _get_loop()
-        future = asyncio.run_coroutine_threadsafe(execute_scan(scan_id), loop)
-        # Wait for completion (blocking in the callback thread is fine —
-        # Pub/Sub subscriber uses its own thread pool)
-        future.result()
+        loop.run_until_complete(execute_scan(scan_id))
 
         message.ack()
         logger.info("pubsub_message_acked", scan_id=scan_id)
 
     except Exception as exc:
         logger.error("pubsub_message_handler_error", error=str(exc))
-        # Nack so the message gets redelivered
         message.nack()
 
 
@@ -79,7 +68,7 @@ def main() -> None:
     setup_logging(settings.api_log_level)
 
     project_id = settings.pubsub_project_id or settings.google_cloud_project
-    topic_name = settings.pubsub_topic_run_scan  # "ccv-run-scan"
+    topic_name = settings.pubsub_topic_run_scan
     subscription_name = os.getenv("PUBSUB_RUN_SCAN_SUBSCRIPTION", f"{topic_name}-sub")
 
     credentials = get_credentials()
@@ -95,20 +84,24 @@ def main() -> None:
         topic=topic_name,
     )
 
-    # Start pulling messages
     streaming_pull = subscriber.subscribe(subscription_path, callback=_callback)
     print(f"Listening for messages on {subscription_path} ...")
+    print("Press Ctrl+C to stop.")
 
-    # Block the main thread
+    # Handle Ctrl+C gracefully
+    def _shutdown(signum, frame):
+        print("\nShutting down...")
+        streaming_pull.cancel()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, _shutdown)
+    signal.signal(signal.SIGTERM, _shutdown)
+
     try:
         streaming_pull.result()
-    except KeyboardInterrupt:
+    except Exception:
         streaming_pull.cancel()
-        streaming_pull.result()  # Wait for cleanup
-        # Stop the background event loop
-        loop = _get_loop()
-        loop.call_soon_threadsafe(loop.stop)
-        logger.info("scan_subscriber_stopped")
+        sys.exit(0)
 
 
 if __name__ == "__main__":
