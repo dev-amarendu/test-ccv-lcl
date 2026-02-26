@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import threading
+import concurrent.futures
 
 from google.cloud import pubsub_v1
 
@@ -23,6 +23,26 @@ from shared.logging import get_logger, setup_logging
 from scan_runner.runner import execute_scan
 
 logger = get_logger(__name__)
+
+# Single event loop running in a background thread — all async work goes here
+_loop: asyncio.AbstractEventLoop | None = None
+_executor: concurrent.futures.ThreadPoolExecutor | None = None
+
+
+def _get_loop() -> asyncio.AbstractEventLoop:
+    """Return a persistent event loop running in a background thread."""
+    global _loop, _executor
+    if _loop is None or _loop.is_closed():
+        _loop = asyncio.new_event_loop()
+        _executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        _executor.submit(_run_loop, _loop)
+    return _loop
+
+
+def _run_loop(loop: asyncio.AbstractEventLoop) -> None:
+    """Run the event loop forever in a background thread."""
+    asyncio.set_event_loop(loop)
+    loop.run_forever()
 
 
 def _callback(message: pubsub_v1.subscriber.message.Message) -> None:
@@ -38,12 +58,12 @@ def _callback(message: pubsub_v1.subscriber.message.Message) -> None:
 
         logger.info("pubsub_message_received", scan_id=scan_id)
 
-        # Run the async execute_scan in an event loop
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(execute_scan(scan_id))
-        finally:
-            loop.close()
+        # Submit the async work to the persistent event loop
+        loop = _get_loop()
+        future = asyncio.run_coroutine_threadsafe(execute_scan(scan_id), loop)
+        # Wait for completion (blocking in the callback thread is fine —
+        # Pub/Sub subscriber uses its own thread pool)
+        future.result()
 
         message.ack()
         logger.info("pubsub_message_acked", scan_id=scan_id)
@@ -85,6 +105,9 @@ def main() -> None:
     except KeyboardInterrupt:
         streaming_pull.cancel()
         streaming_pull.result()  # Wait for cleanup
+        # Stop the background event loop
+        loop = _get_loop()
+        loop.call_soon_threadsafe(loop.stop)
         logger.info("scan_subscriber_stopped")
 
 
