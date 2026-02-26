@@ -14,7 +14,6 @@ from shared.config import get_settings
 from shared.firestore_client import get_firestore_client
 from shared.firestore_models import ScanArtifactDoc
 from shared.logging import get_logger
-from shared.repositories.repos import RepoStore
 from shared.repositories.scan_store import ScanStore
 from shared.repositories.finding_store import FindingStore
 
@@ -34,17 +33,15 @@ async def run_scan_pipeline(scan_id: str) -> None:
     mcp = MCPClient()
 
     scan_store = ScanStore(db)
-    repo_store = RepoStore(db)
     finding_store = FindingStore(db)
 
-    # Load scan + repo
+    # Load scan
     scan = await scan_store.get_scan(scan_id)
     if not scan:
         raise RuntimeError(f"Scan {scan_id} not found")
 
-    repo = await repo_store.get_repo(scan.repo_id)
-    if not repo:
-        raise RuntimeError(f"Repo {scan.repo_id} not found")
+    # repo_id is the Bitbucket slug (e.g. "my-java-app")
+    repo_name = scan.repo_id
 
     app_id = settings.veracode_app_id
     if not app_id:
@@ -53,8 +50,8 @@ async def run_scan_pipeline(scan_id: str) -> None:
     repo_path = None
     try:
         # 1. Clone repo
-        logger.info("pipeline_clone", repo=repo.name, branch=scan.branch)
-        repo_path = clone_repo(repo.name, scan.branch)
+        logger.info("pipeline_clone", repo=repo_name, branch=scan.branch)
+        repo_path = clone_repo(repo_name, scan.branch)
 
         # 2. Maven build
         logger.info("pipeline_maven_build")
