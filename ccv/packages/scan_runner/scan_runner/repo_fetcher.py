@@ -32,7 +32,12 @@ def clone_repo(repo_name: str, branch: str, target_dir: str | None = None) -> Pa
     if not url_template:
         raise RuntimeError("REPO_CLONE_URL_TEMPLATE is not configured")
 
-    clone_url = url_template.replace("{repo}", repo_name)
+    clone_url = (
+        url_template
+        .replace("{base_url}", settings.bitbucket_base_url.rstrip("/"))
+        .replace("{project}", settings.bitbucket_project)
+        .replace("{repo}", repo_name)
+    )
 
     # Inject credentials into URL if provided
     if settings.git_username and settings.git_password_or_token:
