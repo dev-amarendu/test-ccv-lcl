@@ -40,11 +40,11 @@ def clone_repo(repo_name: str, branch: str, target_dir: str | None = None) -> Pa
     )
 
     # Inject credentials into URL if provided
-    if settings.git_username and settings.git_password_or_token:
-        # https://user:token@host/path
-        if "://" in clone_url:
-            proto, rest = clone_url.split("://", 1)
-            clone_url = f"{proto}://{settings.git_username}:{settings.git_password_or_token}@{rest}"
+    token = settings.bitbucket_token or settings.git_password_or_token
+    username = settings.git_username or "x-token-auth"
+    if token and "://" in clone_url:
+        proto, rest = clone_url.split("://", 1)
+        clone_url = f"{proto}://{username}:{token}@{rest}"
 
     logger.info("repo_clone_start", repo=repo_name, branch=branch)
 
