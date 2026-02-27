@@ -492,3 +492,128 @@ async def veracode_get_scan_metadata(params: dict[str, Any]) -> dict:
         status=metadata.get("status", "unknown"),
     )
     return metadata
+
+
+# ── Tool: veracode.create_build ───────────────────────────────────────────────
+
+
+async def veracode_create_build(params: dict[str, Any]) -> dict:
+    """Create a new build (version) using createbuild.do.
+
+    Params:
+        app_id: str — Veracode application profile ID
+        version: str — unique build version name (e.g., 'scan_abc123_20260227')
+        sandbox_id: str (optional)
+    """
+    client = _get_client()
+    app_id = params["app_id"]
+    version = params["version"]
+    sandbox_id = params.get("sandbox_id")
+
+    request_params: dict[str, str] = {
+        "app_id": app_id,
+        "version": version,
+    }
+    if sandbox_id:
+        request_params["sandbox_id"] = sandbox_id
+
+    root = await client.xml_request("createbuild.do", method="POST", params=request_params)
+    build_id = root.get("build_id", "")
+
+    logger.info("veracode_build_created", app_id=app_id, build_id=build_id, version=version)
+    return {"status": "build_created", "build_id": build_id, "version": version}
+
+
+# ── Tool: veracode.get_detailed_report ────────────────────────────────────────
+
+
+async def veracode_get_detailed_report(params: dict[str, Any]) -> dict:
+    """Download the Detailed Report XML using detailedreport.do.
+
+    Params:
+        build_id: str — the build ID to get the report for
+    """
+    client = _get_client()
+    build_id = params["build_id"]
+
+    root = await client.xml_request("detailedreport.do", params={"build_id": build_id})
+
+    # Parse top-level report metadata
+    report: dict[str, Any] = {
+        "build_id": build_id,
+        "app_name": root.get("app_name", ""),
+        "total_flaws": root.get("total_flaws", "0"),
+        "flaws_not_mitigated": root.get("flaws_not_mitigated", "0"),
+    }
+
+    # Extract individual flaws
+    flaws = []
+    for flaw in root.iter():
+        tag = flaw.tag.lower() if isinstance(flaw.tag, str) else ""
+        if "flaw" in tag:
+            flaws.append({
+                "issueid": flaw.get("issueid", ""),
+                "severity": flaw.get("severity", ""),
+                "cweid": flaw.get("cweid", ""),
+                "categoryname": flaw.get("categoryname", ""),
+                "sourcefile": flaw.get("sourcefile", ""),
+                "line": flaw.get("line", ""),
+                "remediation_status": flaw.get("remediation_status", ""),
+                "description": flaw.get("description", ""),
+            })
+
+    report["flaws"] = flaws
+    logger.info("veracode_detailed_report", build_id=build_id, flaw_count=len(flaws))
+    return report
+
+
+# ── Tool: veracode.get_static_findings ────────────────────────────────────────
+
+
+async def veracode_get_static_findings(params: dict[str, Any]) -> dict:
+    """Fetch static scan findings using the Findings REST API v2.
+
+    Params:
+        app_id: str — Veracode application GUID
+        sandbox_id: str (optional)
+    """
+    client = _get_client()
+    app_id = params["app_id"]
+    sandbox_id = params.get("sandbox_id")
+
+    path = f"/appsec/v2/applications/{app_id}/findings"
+    request_params: dict[str, str] = {"size": "500", "scan_type": "STATIC"}
+    if sandbox_id:
+        request_params["context"] = sandbox_id
+
+    result = await client.rest_request(path, params=request_params)
+    findings = result.get("_embedded", {}).get("findings", [])
+
+    logger.info("veracode_static_findings_fetched", app_id=app_id, count=len(findings))
+    return {"findings": findings, "total": len(findings), "scan_type": "STATIC"}
+
+
+# ── Tool: veracode.get_sca_findings ───────────────────────────────────────────
+
+
+async def veracode_get_sca_findings(params: dict[str, Any]) -> dict:
+    """Fetch SCA (Software Composition Analysis) findings using the Findings REST API v2.
+
+    Params:
+        app_id: str — Veracode application GUID
+        sandbox_id: str (optional)
+    """
+    client = _get_client()
+    app_id = params["app_id"]
+    sandbox_id = params.get("sandbox_id")
+
+    path = f"/appsec/v2/applications/{app_id}/findings"
+    request_params: dict[str, str] = {"size": "500", "scan_type": "SCA"}
+    if sandbox_id:
+        request_params["context"] = sandbox_id
+
+    result = await client.rest_request(path, params=request_params)
+    findings = result.get("_embedded", {}).get("findings", [])
+
+    logger.info("veracode_sca_findings_fetched", app_id=app_id, count=len(findings))
+    return {"findings": findings, "total": len(findings), "scan_type": "SCA"}

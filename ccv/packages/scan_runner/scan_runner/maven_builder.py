@@ -23,12 +23,13 @@ def build_maven_project(repo_path: Path) -> Path:
 
     try:
         subprocess.run(
-            ["mvn", "package", "-DskipTests", "-q", "-f", str(pom)],
+            "mvn clean package -DskipTests -Djib.skip=true",
             check=True,
             capture_output=True,
             text=True,
             timeout=600,
             cwd=str(repo_path),
+            shell=True,
         )
     except FileNotFoundError:
         raise RuntimeError("Maven (mvn) is not installed or not on PATH")
