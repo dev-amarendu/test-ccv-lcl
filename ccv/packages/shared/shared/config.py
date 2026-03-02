@@ -48,7 +48,9 @@ class Settings(BaseSettings):
     veracode_api_key_id: str = ""
     veracode_api_key_secret: str = ""
     veracode_app_id: str = ""
+    veracode_app_guid: str = ""
     veracode_sandbox_id: str = ""
+    veracode_sandbox_guid: str = ""
 
     # ── Veracode Periodic Sync ────────────────
     veracode_sync_interval_seconds: int = 300

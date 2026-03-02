@@ -43,10 +43,14 @@ async def run_scan_pipeline(scan_id: str) -> None:
 
     repo_name = scan.repo_id
     app_id = settings.veracode_app_id
+    app_guid = settings.veracode_app_guid
     sandbox_id = settings.veracode_sandbox_id or None
+    sandbox_guid = settings.veracode_sandbox_guid or None
 
     if not app_id:
         raise RuntimeError("VERACODE_APP_ID is not configured")
+    if not app_guid:
+        raise RuntimeError("VERACODE_APP_GUID is not configured")
 
     repo_path = None
     try:
@@ -120,12 +124,12 @@ async def run_scan_pipeline(scan_id: str) -> None:
 
         # ── Step 10: Get static findings ─────────────────────────────────
         logger.info("pipeline_step_10_static_findings")
-        static_result = veracode_api.get_static_findings(app_id, sandbox_id)
+        static_result = veracode_api.get_static_findings(app_guid, sandbox_guid)
         static_count = static_result.get("total", 0)
 
         # ── Step 11: Get SCA findings ────────────────────────────────────
         logger.info("pipeline_step_11_sca_findings")
-        sca_result = veracode_api.get_sca_findings(app_id, sandbox_id)
+        sca_result = veracode_api.get_sca_findings(app_guid, sandbox_guid)
         sca_count = sca_result.get("total", 0)
 
         # ── Step 12: Update scan record ──────────────────────────────────

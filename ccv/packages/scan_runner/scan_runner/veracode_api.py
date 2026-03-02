@@ -198,14 +198,14 @@ def get_detailed_report(build_id: str, api_base: str = "https://analysiscenter.v
     return report
 
 
-def _get_rest_findings(app_id: str, sandbox_id: str | None, scan_type: str) -> dict:
+def _get_rest_findings(app_guid: str, sandbox_guid: str | None, scan_type: str) -> dict:
     """Fetch static/SCA findings via REST API v2."""
     settings = get_settings()
     auth = _get_auth()
-    url = f"{settings.veracode_rest_base.rstrip('/')}/appsec/v2/applications/{app_id}/findings"
+    url = f"{settings.veracode_rest_base.rstrip('/')}/appsec/v2/applications/{app_guid}/findings"
     
-    params: dict[str, str] = {"size": "500", "scan_type": scan_type}
-    if sandbox_id: params["context"] = sandbox_id
+    params: dict[str, str] = {"scan_type": scan_type}
+    if sandbox_guid: params["context"] = sandbox_guid
 
     resp = requests.get(url, params=params, auth=auth, timeout=120)
     resp.raise_for_status()
@@ -213,9 +213,9 @@ def _get_rest_findings(app_id: str, sandbox_id: str | None, scan_type: str) -> d
     return {"findings": findings, "total": len(findings), "scan_type": scan_type}
 
 
-def get_static_findings(app_id: str, sandbox_id: str | None = None) -> dict:
-    return _get_rest_findings(app_id, sandbox_id, "STATIC")
+def get_static_findings(app_guid: str, sandbox_guid: str | None = None) -> dict:
+    return _get_rest_findings(app_guid, sandbox_guid, "STATIC")
 
 
-def get_sca_findings(app_id: str, sandbox_id: str | None = None) -> dict:
-    return _get_rest_findings(app_id, sandbox_id, "SCA")
+def get_sca_findings(app_guid: str, sandbox_guid: str | None = None) -> dict:
+    return _get_rest_findings(app_guid, sandbox_guid, "SCA")
