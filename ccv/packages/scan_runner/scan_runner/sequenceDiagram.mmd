@@ -1,0 +1,33 @@
+sequenceDiagram
+    participant Git as Code Host (Bitbucket/GitHub)
+    participant API as API Service
+    participant Audit as Audit Log
+    participant PS as Pub/Sub
+    participant Worker as Scan Orchestrator
+    participant VC as Veracode Platform
+
+    Git->>API: POST /api/webhooks/bitbucket/pullrequest
+    Note right of Git: Event: PR Merged / Updated
+    
+    API->>API: Validate Payload (Branch=main?)
+    
+    rect rgb(240, 240, 240)
+        Note left of API: Decision: Trigger Scan?
+        alt If Valid
+            API->>DB: Create Scan (status=QUEUED, trigger=WEBHOOK)
+            API->>PS: Publish "RUN_SCAN" {scan_id}
+            API->>Audit: Log "webhook_received"
+            API-->>Git: 202 Accepted
+        else If Invalid/Ignored
+            API-->>Git: 200 Ignored
+        end
+    end
+
+    Note over PS,Worker: Async Execution (Same as Manual)
+    PS->>API: POST /api/tasks/run-scan
+    API->>Worker: run_scan_pipeline(scan_id)
+    
+    Worker->>Worker: Clone (Merge Commit)
+    Worker->>VC: Upload & Scan
+    
+    Note right of Worker: ... Pipeline continues (see Manual Scan) ...

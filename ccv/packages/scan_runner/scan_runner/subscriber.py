@@ -89,18 +89,21 @@ def main() -> None:
     print("Press Ctrl+C to stop.")
 
     # Handle Ctrl+C gracefully
-    def _shutdown(signum, frame):
-        print("\nShutting down...")
-        streaming_pull.cancel()
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, _shutdown)
-    signal.signal(signal.SIGTERM, _shutdown)
-
     try:
-        streaming_pull.result()
-    except Exception:
+        # Block in Python (time.sleep) rather than gRPC (streaming_pull.result)
+        # to ensure KeyboardInterrupt can be raised cleanly on Ctrl+C.
+        import time
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nShutting down gracefully...")
         streaming_pull.cancel()
+        streaming_pull.result()  # Block until shutdown is complete
+    except Exception as exc:
+        logger.error("subscriber_error", error=str(exc))
+        streaming_pull.cancel()
+        streaming_pull.result()
+    finally:
         sys.exit(0)
 
 
