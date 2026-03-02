@@ -101,6 +101,7 @@ def poll_prescan_until_complete(app_id: str, sandbox_id: str | None = None, buil
         attempt += 1
         resp = requests.post(url, data=data, auth=auth, timeout=60)
         if resp.status_code in (429, 502, 503, 504):
+            logger.warning("veracode_prescan_poll_retry", code=resp.status_code, attempt=attempt)
             time.sleep(min(5 * attempt, 30))
             continue
         resp.raise_for_status()
@@ -111,15 +112,18 @@ def poll_prescan_until_complete(app_id: str, sandbox_id: str | None = None, buil
         if not module_statuses:
             if time.time() - start > timeout:
                 raise RuntimeError("Prescan timed out — no modules found")
+            logger.info("veracode_prescan_poll_waiting", reason="no_modules_yet", attempt=attempt)
             time.sleep(poll_interval)
             continue
 
         if any(s in {"Queued", "Pre-Scan Submitted", "Pre-Scan Running"} for s in module_statuses):
             if time.time() - start > timeout:
                 raise RuntimeError(f"Prescan timed out. Statuses: {module_statuses}")
+            logger.info("veracode_prescan_poll_waiting", statuses=list(module_statuses), attempt=attempt)
             time.sleep(poll_interval)
             continue
 
+        logger.info("veracode_prescan_poll_complete", statuses=list(module_statuses), attempts=attempt)
         return {"statuses": list(module_statuses), "polls": attempt}
 
 
@@ -132,6 +136,7 @@ def begin_final_scan(app_id: str, sandbox_id: str | None = None, api_base: str =
 
     resp = requests.post(url, data=data, auth=auth, timeout=180)
     resp.raise_for_status()
+    logger.info("veracode_final_scan_started", app_id=app_id)
 
 
 def poll_final_scan_until_complete(app_id: str, sandbox_id: str | None = None, build_id: str | None = None, poll_interval: int = 20, timeout: int = 3600, api_base: str = "https://analysiscenter.veracode.com") -> dict:
@@ -147,6 +152,7 @@ def poll_final_scan_until_complete(app_id: str, sandbox_id: str | None = None, b
         attempt += 1
         resp = requests.post(url, data=data, auth=auth, timeout=60)
         if resp.status_code in (429, 502, 503, 504):
+            logger.warning("veracode_final_scan_poll_retry", code=resp.status_code, attempt=attempt)
             time.sleep(min(5 * attempt, 30))
             continue
         resp.raise_for_status()
@@ -156,14 +162,18 @@ def poll_final_scan_until_complete(app_id: str, sandbox_id: str | None = None, b
         if build_elem is None:
             if time.time() - start > timeout:
                 raise RuntimeError("Final scan timed out — no build info found")
+            logger.info("veracode_final_scan_poll_waiting", reason="no_build_info_yet", attempt=attempt)
             time.sleep(poll_interval)
             continue
 
         if build_elem.attrib.get("results_ready", "").lower() == "true":
+            logger.info("veracode_final_scan_poll_complete", attempts=attempt)
             return {"attempts": attempt, "results_ready": True}
 
         if time.time() - start > timeout:
             raise RuntimeError(f"Final scan timed out after {attempt} polls")
+        
+        logger.info("veracode_final_scan_poll_waiting", status=build_elem.attrib.get("analysis_unit_status", "in_progress"), attempt=attempt)
         time.sleep(poll_interval)
 
 
