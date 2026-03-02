@@ -230,3 +230,27 @@ async def run_scan_pipeline(scan_id: str) -> None:
         # ── Cleanup temp files ───────────────────────────────────────────
         if repo_path:
             cleanup_repo(repo_path)
+
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+
+    # Setup basic logging for local test runs
+    from shared.logging import setup_logging
+    setup_logging("DEBUG")
+
+    parser = argparse.ArgumentParser(description="Run the orchestrator pipeline manually")
+    parser.add_argument("--scan-id", required=True, help="Scan ID to process from Firestore")
+    
+    args = parser.parse_args()
+
+    try:
+        asyncio.run(run_scan_pipeline(args.scan_id))
+        print("\n\033[92mPipeling completed successfully!\033[0m")
+    except KeyboardInterrupt:
+        print("\nPipeline stopped by user")
+        sys.exit(130)
+    except Exception as e:
+        print(f"\n\033[91mPipeline failed:\033[0m {e}")
+        sys.exit(1)
