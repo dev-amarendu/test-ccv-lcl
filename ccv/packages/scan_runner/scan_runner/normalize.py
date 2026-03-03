@@ -24,18 +24,30 @@ def normalize_findings(scan_id: str, raw_results: dict) -> list[FindingDoc]:
         items = raw_results
 
     findings: list[FindingDoc] = []
-    severity_map = {0: "Informational", 1: "Very Low", 2: "Low", 3: "Medium", 4: "High", 5: "Very High"}
+    severity_int_map = {
+        0: "info", 1: "low", 2: "low", 3: "medium", 4: "high", 5: "high",
+    }
 
     for item in items:
         details = item.get("finding_details", {})
 
         cwe_id = int(details.get("cwe", {}).get("id", item.get("cwe_id", 0)))
-        severity_num = details.get("severity", item.get("severity", 3))
-        severity = (
-            severity_map.get(int(severity_num), str(severity_num))
-            if isinstance(severity_num, (int, float))
-            else str(severity_num)
-        )
+        
+        raw_sev = details.get("severity", item.get("severity", 3))
+        if isinstance(raw_sev, (int, float)) or (isinstance(raw_sev, str) and raw_sev.isdigit()):
+            severity = severity_int_map.get(int(raw_sev), "medium")
+        else:
+            sev_str = str(raw_sev).lower()
+            if sev_str == "informational":
+                severity = "info"
+            elif sev_str == "very low":
+                severity = "low"
+            elif sev_str == "very high":
+                severity = "high"
+            elif sev_str not in ("critical", "high", "medium", "low", "info"):
+                severity = "medium"
+            else:
+                severity = sev_str
         title = (
             details.get("finding_category", {}).get("name", "")
             or item.get("title", "Unknown Finding")
