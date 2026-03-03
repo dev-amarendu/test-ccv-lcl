@@ -50,7 +50,13 @@ const severityMap: Record<Severity, SeverityConfig> = {
 
 /* ── Component ── */
 export function SeverityBadge({ severity, size = 'sm', className, style }: SeverityBadgeProps) {
-  const config = severityMap[severity];
+  let normalizedSev = severity?.toLowerCase() as Severity;
+  // Handle old un-normalized database values
+  if (normalizedSev === 'informational' as any) normalizedSev = 'info';
+  if (normalizedSev === 'very high' as any) normalizedSev = 'high';
+  if (normalizedSev === 'very low' as any) normalizedSev = 'low';
+
+  const config = severityMap[normalizedSev] || severityMap.info; // Default fallback to prevent crash
   const Icon = config.icon;
 
   return (
