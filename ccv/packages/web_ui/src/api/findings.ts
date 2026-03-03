@@ -89,7 +89,7 @@ export async function fetchFindingAnalysis(
 export async function requestAnalysis(findingId: string): Promise<void> {
   try {
     await apiFetch<void>(
-      `/api/findings/${encodeURIComponent(findingId)}/analysis`,
+      `/api/findings/${encodeURIComponent(findingId)}/analysis/request`,
       { method: "POST" },
     );
   } catch (err) {

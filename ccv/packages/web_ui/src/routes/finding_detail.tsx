@@ -19,7 +19,7 @@ import { useToast } from '@/components/ui/toast';
 import { CodeViewer } from '@/components/code_viewer';
 import { SeverityBadge } from '@/components/severity_badge';
 
-import { fetchFinding, fetchFindingAnalysis } from '@/api/findings';
+import { fetchFinding, fetchFindingAnalysis, requestAnalysis } from '@/api/findings';
 import { createKBCard } from '@/api/knowledge';
 import type { Finding, FindingAnalysis } from '@/api/types';
 
@@ -66,6 +66,7 @@ export default function FindingDetailPage() {
   const [errorFinding, setErrorFinding] = useState<string | null>(null);
   const [errorAnalysis, setErrorAnalysis] = useState<string | null>(null);
   const [addingToKB, setAddingToKB] = useState(false);
+  const [requestingAnalysis, setRequestingAnalysis] = useState(false);
 
   useEffect(() => {
     if (!findingId) return;
@@ -128,6 +129,40 @@ export default function FindingDetailPage() {
       toast('error', err instanceof Error ? err.message : 'Failed to add to KB');
     } finally {
       setAddingToKB(false);
+    }
+  }
+
+  /* ── Request Analysis ── */
+  async function handleRequestAnalysis() {
+    if (!finding) return;
+    setRequestingAnalysis(true);
+    try {
+      await requestAnalysis(finding.id);
+      toast('info', 'AI Analysis requested. Generating...', 10000);
+
+      // Poll gently for completion
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        try {
+          const data = await fetchFindingAnalysis(finding.id);
+          setAnalysis(data);
+          setErrorAnalysis(null);
+          clearInterval(interval);
+          setRequestingAnalysis(false);
+          toast('success', 'AI Analysis completed successfully!');
+        } catch {
+          if (attempts > 12) {
+            clearInterval(interval);
+            setRequestingAnalysis(false);
+            toast('error', 'AI Analysis timed out. Try refreshing later.');
+          }
+        }
+      }, 3000);
+
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Failed to request analysis');
+      setRequestingAnalysis(false);
     }
   }
 
@@ -243,7 +278,11 @@ export default function FindingDetailPage() {
             <Card>
               <div style={{ textAlign: 'center', padding: 'var(--space-4)', color: 'var(--color-neutral-500)' }}>
                 <Info size={24} style={{ marginBottom: 'var(--space-2)' }} />
-                <p style={{ fontSize: 'var(--font-size-sm)' }}>No AI enrichment available for this finding yet.</p>
+                <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-3)' }}>No AI enrichment available for this finding yet.</p>
+                <Button size="sm" variant="primary" onClick={handleRequestAnalysis} loading={requestingAnalysis}>
+                  <Brain size={14} style={{ marginRight: '6px', verticalAlign: 'middle', display: 'inline-block' }} />
+                  <span style={{ verticalAlign: 'middle' }}>Generate AI Analysis</span>
+                </Button>
               </div>
             </Card>
           ) : (

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from google.cloud.firestore_v1 import AsyncClient
 
 from shared.firestore_models import AuditLogDoc
@@ -152,6 +152,7 @@ async def get_finding_analysis(
 @router.post("/{finding_id}/analysis/request", status_code=202)
 async def request_finding_analysis(
     finding_id: str,
+    background_tasks: BackgroundTasks,
     db: AsyncClient = Depends(db_session),
 ) -> dict:
     """Publish an ANALYZE_FINDING message to Pub/Sub for the given finding."""
@@ -162,7 +163,13 @@ async def request_finding_analysis(
     if not finding:
         raise HTTPException(status_code=404, detail="Finding not found")
 
-    publish_analyze_finding(finding_id)
+    # Bypass PubSub push subscriptions locally by feeding the agent task directly into FastAPI background concurrency
+    try:
+        from analysis_agent.agent import analyze_finding
+        background_tasks.add_task(analyze_finding, finding_id)
+    except ImportError:
+        logger.warning("analysis_agent_not_available_for_background_task")
+        publish_analyze_finding(finding_id)
 
     await audit_store.log_entry(AuditLogDoc(
         request_id=get_request_id(),
