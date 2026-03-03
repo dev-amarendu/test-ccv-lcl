@@ -18,6 +18,7 @@ import { clsx } from 'clsx';
 import DashboardPage from './routes/dashboard';
 import ManualScanPage from './routes/manual_scan';
 import ScansPage from './routes/scans';
+import ScanDetailPage from './routes/scan_detail';
 import FindingsPage from './routes/findings';
 import FindingDetailPage from './routes/finding_detail';
 import KnowledgeBasePage from './routes/knowledge_base';
@@ -100,6 +101,7 @@ export function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/manual-scan" element={<ManualScanPage />} />
             <Route path="/scans" element={<ScansPage />} />
+            <Route path="/scans/:scanId" element={<ScanDetailPage />} />
             <Route path="/findings" element={<FindingsPage />} />
             <Route path="/findings/:findingId" element={<FindingDetailPage />} />
             <Route path="/knowledge-base" element={<KnowledgeBasePage />} />

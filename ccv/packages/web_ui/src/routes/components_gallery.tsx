@@ -115,12 +115,12 @@ export default function ComponentsGalleryPage() {
       {/* ─── SeverityBadge ─── */}
       <Section title="SeverityBadge">
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', alignItems: 'center' }}>
-          <SeverityBadge severity="Critical" />
-          <SeverityBadge severity="High" />
-          <SeverityBadge severity="Medium" />
-          <SeverityBadge severity="Low" />
-          <SeverityBadge severity="Informational" />
-          <SeverityBadge severity="Critical" size="md" />
+          <SeverityBadge severity="critical" />
+          <SeverityBadge severity="high" />
+          <SeverityBadge severity="medium" />
+          <SeverityBadge severity="low" />
+          <SeverityBadge severity="info" />
+          <SeverityBadge severity="critical" size="md" />
         </div>
       </Section>
 
