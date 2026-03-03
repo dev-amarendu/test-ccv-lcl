@@ -24,6 +24,7 @@ def normalize_findings(scan_id: str, raw_results: dict) -> list[FindingDoc]:
         items = raw_results
 
     findings: list[FindingDoc] = []
+    seen_fingerprints = set()
     severity_int_map = {
         0: "info", 1: "low", 2: "low", 3: "medium", 4: "high", 5: "high",
     }
@@ -56,6 +57,10 @@ def normalize_findings(scan_id: str, raw_results: dict) -> list[FindingDoc]:
         line = details.get("file_line_number") or item.get("line")
 
         fp = stable_fingerprint(str(cwe_id), file_path, str(line or ""), title)
+
+        if fp in seen_fingerprints:
+            continue
+        seen_fingerprints.add(fp)
 
         findings.append(FindingDoc(
             id=str(generate_uuid()),

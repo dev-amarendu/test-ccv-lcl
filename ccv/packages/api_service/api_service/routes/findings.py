@@ -68,6 +68,13 @@ async def list_findings(
         scan_id=scan_id, severity=severity, page=page, page_size=page_size,
     )
 
+    seen_fingerprints = set()
+    unique_items = []
+    for f in items:
+        if f.fingerprint not in seen_fingerprints:
+            unique_items.append(f)
+            seen_fingerprints.add(f.fingerprint)
+
     return FindingListResponse(
         items=[
             FindingResponse(
@@ -80,7 +87,7 @@ async def list_findings(
                 code_snippet_json=f.code_snippet_json,
                 created_at=f.created_at,
             )
-            for f in items
+            for f in unique_items
         ],
         total=total,
         page=page,
