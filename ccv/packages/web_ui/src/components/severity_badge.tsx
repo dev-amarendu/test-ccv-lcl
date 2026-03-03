@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react';
 import { clsx } from 'clsx';
 
 /* ── Types ── */
-export type Severity = 'Critical' | 'High' | 'Medium' | 'Low' | 'Informational';
+export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
 export interface SeverityBadgeProps {
   severity: Severity;
@@ -21,27 +21,27 @@ interface SeverityConfig {
 }
 
 const severityMap: Record<Severity, SeverityConfig> = {
-  Critical: {
+  critical: {
     bg: 'var(--color-critical-100)',
     text: 'var(--color-critical-700)',
     icon: ShieldClose,
   },
-  High: {
+  high: {
     bg: '#fff7ed', // orange-50
     text: '#c2410c', // orange-700
     icon: ShieldAlert,
   },
-  Medium: {
+  medium: {
     bg: 'var(--color-warning-100)',
     text: 'var(--color-warning-700)',
     icon: AlertTriangle,
   },
-  Low: {
+  low: {
     bg: 'var(--color-success-100)',
     text: 'var(--color-success-700)',
     icon: ShieldCheck,
   },
-  Informational: {
+  info: {
     bg: 'var(--color-neutral-100)',
     text: 'var(--color-neutral-600)',
     icon: Info,
@@ -60,6 +60,7 @@ export function SeverityBadge({ severity, size = 'sm', className, style }: Sever
       style={{
         background: config.bg,
         color: config.text,
+        textTransform: 'capitalize',
         ...style,
       }}
     >

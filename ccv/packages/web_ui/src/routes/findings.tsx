@@ -15,19 +15,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { Tooltip } from '@/components/ui/tooltip';
 import { Table, type Column } from '@/components/ui/table';
-import { SeverityBadge, type Severity } from '@/components/severity_badge';
+import { SeverityBadge } from '@/components/severity_badge';
 
 import { fetchFindings } from '@/api/findings';
 import type { Finding, FindingFilters, Severity as SeverityType } from '@/api/types';
 
-/* ── Severity display mapping ── */
-const severityDisplayMap: Record<SeverityType, Severity> = {
-  critical: 'Critical',
-  high: 'High',
-  medium: 'Medium',
-  low: 'Low',
-  info: 'Informational',
-};
+
 
 /* ── Row type ── */
 interface FindingRow extends Record<string, unknown> {
@@ -121,7 +114,7 @@ export default function FindingsPage() {
       header: 'Severity',
       accessor: 'severity',
       width: '130px',
-      render: (val) => <SeverityBadge severity={severityDisplayMap[val as SeverityType]} />,
+      render: (val) => <SeverityBadge severity={val as SeverityType} />,
     },
     {
       header: 'Fingerprint',

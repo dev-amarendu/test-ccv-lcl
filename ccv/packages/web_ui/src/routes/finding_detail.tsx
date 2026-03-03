@@ -17,20 +17,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip } from '@/components/ui/tooltip';
 import { useToast } from '@/components/ui/toast';
 import { CodeViewer } from '@/components/code_viewer';
-import { SeverityBadge, type Severity } from '@/components/severity_badge';
+import { SeverityBadge } from '@/components/severity_badge';
 
 import { fetchFinding, fetchFindingAnalysis } from '@/api/findings';
 import { createKBCard } from '@/api/knowledge';
-import type { Finding, FindingAnalysis, Severity as SeverityType } from '@/api/types';
+import type { Finding, FindingAnalysis } from '@/api/types';
 
-/* ── Severity display mapping ── */
-const severityDisplayMap: Record<SeverityType, Severity> = {
-  critical: 'Critical',
-  high: 'High',
-  medium: 'Medium',
-  low: 'Low',
-  info: 'Informational',
-};
+
 
 /* ── Parse code snippet from JSON ── */
 function parseCodeSnippet(json: Record<string, unknown> | null | undefined): {
@@ -180,7 +173,7 @@ export default function FindingDetailPage() {
         <Link to="/findings" style={{ color: 'var(--color-neutral-500)', textDecoration: 'none', fontSize: 'var(--font-size-sm)' }}>
           ← Findings
         </Link>
-        <SeverityBadge severity={severityDisplayMap[finding.severity]} />
+        <SeverityBadge severity={finding.severity} />
         <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-bold)', color: 'var(--color-neutral-900)', margin: 0 }}>
           {finding.title}
         </h1>
@@ -193,7 +186,7 @@ export default function FindingDetailPage() {
         <Card title="Metadata">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             <MetaRow label="CWE" value={`CWE-${finding.cwe_id}`} />
-            <MetaRow label="Severity" value={<SeverityBadge severity={severityDisplayMap[finding.severity]} size="sm" />} />
+            <MetaRow label="Severity" value={<SeverityBadge severity={finding.severity} size="sm" />} />
             <MetaRow
               label="Fingerprint"
               value={
