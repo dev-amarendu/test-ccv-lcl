@@ -30,6 +30,7 @@ logger = get_logger(__name__)
 
 @router.get("", response_model=FindingListResponse)
 async def list_findings(
+    scan_id: str | None = Query(None, description="Filter findings by a specific scan ID"),
     kind: str | None = Query(None, description="Set to 'kb' to list KB fix cards instead"),
     severity: str | None = Query(None),
     page: int = Query(1, ge=1),
@@ -64,7 +65,7 @@ async def list_findings(
     # ── Standard finding listing ─────────────────────────────────────────
     finding_store = FindingStore(db)
     items, total = await finding_store.list_findings(
-        severity=severity, page=page, page_size=page_size,
+        scan_id=scan_id, severity=severity, page=page, page_size=page_size,
     )
 
     return FindingListResponse(

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Eye,
   Copy,
@@ -45,6 +45,8 @@ interface FindingRow extends Record<string, unknown> {
 
 export default function FindingsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const scanId = searchParams.get('scan_id');
   const { toast, ToastContainer } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -64,6 +66,7 @@ export default function FindingsPage() {
     setError(null);
     try {
       const filters: FindingFilters = { page: 1, page_size: 50 };
+      if (scanId) filters.scan_id = scanId;
       if (filterSeverity) filters.severity = filterSeverity as SeverityType;
 
       const findingsRes = await fetchFindings(filters);
@@ -99,7 +102,7 @@ export default function FindingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterSeverity, filterFilePath, filterSearch, filterConfMin, filterConfMax]);
+  }, [scanId, filterSeverity, filterFilePath, filterSearch, filterConfMin, filterConfMax]);
 
   useEffect(() => {
     loadFindings();
@@ -230,7 +233,7 @@ export default function FindingsPage() {
     <div style={{ padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 'var(--font-weight-bold)', color: 'var(--color-neutral-900)' }}>
-          Findings
+          {scanId ? `Findings for Scan ${scanId.substring(0, 8)}...` : 'Findings'}
           <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-neutral-500)', fontWeight: 'var(--font-weight-normal)', marginLeft: 'var(--space-2)' }}>
             ({total} total)
           </span>

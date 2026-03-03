@@ -21,8 +21,10 @@ from shared.config import get_settings
 from shared.firestore_client import get_firestore_client
 from shared.firestore_models import ScanArtifactDoc
 from shared.logging import get_logger
+from shared.repositories.finding_store import FindingStore
 from shared.repositories.scan_store import ScanStore
 
+from scan_runner.normalize import normalize_findings
 from scan_runner.repo_fetcher import cleanup_repo, clone_repo
 from scan_runner.maven_builder import build_maven_project
 from scan_runner import veracode_api
@@ -35,6 +37,7 @@ async def run_scan_pipeline(scan_id: str) -> None:
     settings = get_settings()
     db = get_firestore_client()
     scan_store = ScanStore(db)
+    finding_store = FindingStore(db)
 
     # Load scan
     scan = await scan_store.get_scan(scan_id)
@@ -126,11 +129,21 @@ async def run_scan_pipeline(scan_id: str) -> None:
         logger.info("pipeline_step_10_static_findings")
         static_result = veracode_api.get_static_findings(app_guid, sandbox_guid)
         static_count = static_result.get("total", 0)
+        docs_static = normalize_findings(scan_id, static_result)
 
         # ── Step 11: Get SCA findings ────────────────────────────────────
         logger.info("pipeline_step_11_sca_findings")
         sca_result = veracode_api.get_sca_findings(app_guid, sandbox_guid)
         sca_count = sca_result.get("total", 0)
+        docs_sca = normalize_findings(scan_id, sca_result)
+
+        # ── Step 11.5: Save all findings to Firestore ────────────────────
+        all_docs = docs_static + docs_sca
+        if all_docs:
+            logger.info("pipeline_saving_findings", count=len(all_docs))
+            # Firestore batches allow max 500 writes; chunking to 450 to be safe
+            for idx in range(0, len(all_docs), 450):
+                await finding_store.create_findings(all_docs[idx:idx+450])
 
         # ── Step 12: Update scan record ──────────────────────────────────
         await scan_store.update_scan(scan_id, {
