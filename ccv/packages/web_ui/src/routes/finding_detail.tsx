@@ -7,7 +7,6 @@ import {
   Copy,
   BookPlus,
   ExternalLink,
-  Info,
 } from 'lucide-react';
 
 import { Card } from '@/components/ui/card';
@@ -19,7 +18,7 @@ import { useToast } from '@/components/ui/toast';
 import { CodeViewer } from '@/components/code_viewer';
 import { SeverityBadge } from '@/components/severity_badge';
 
-import { fetchFinding, fetchFindingAnalysis, requestAnalysis } from '@/api/findings';
+import { fetchFinding, fetchFindingAnalysis } from '@/api/findings';
 import { createKBCard } from '@/api/knowledge';
 import type { Finding, FindingAnalysis } from '@/api/types';
 
@@ -66,7 +65,6 @@ export default function FindingDetailPage() {
   const [errorFinding, setErrorFinding] = useState<string | null>(null);
   const [errorAnalysis, setErrorAnalysis] = useState<string | null>(null);
   const [addingToKB, setAddingToKB] = useState(false);
-  const [requestingAnalysis, setRequestingAnalysis] = useState(false);
 
   useEffect(() => {
     if (!findingId) return;
@@ -89,7 +87,24 @@ export default function FindingDetailPage() {
         const data = await fetchFindingAnalysis(findingId!);
         if (!cancelled) setAnalysis(data);
       } catch (err) {
-        if (!cancelled) setErrorAnalysis(err instanceof Error ? err.message : 'No enrichment available');
+        if (!cancelled) {
+          setErrorAnalysis(err instanceof Error ? err.message : 'No enrichment available');
+          // Start polling automatically assuming backend is processing it
+          const interval = setInterval(async () => {
+            if (cancelled) {
+              clearInterval(interval);
+              return;
+            }
+            try {
+              const data = await fetchFindingAnalysis(findingId!);
+              setAnalysis(data);
+              setErrorAnalysis(null);
+              clearInterval(interval);
+            } catch {
+              // Ignore, keep polling
+            }
+          }, 3000);
+        }
       } finally {
         if (!cancelled) setLoadingAnalysis(false);
       }
@@ -132,39 +147,6 @@ export default function FindingDetailPage() {
     }
   }
 
-  /* ── Request Analysis ── */
-  async function handleRequestAnalysis() {
-    if (!finding) return;
-    setRequestingAnalysis(true);
-    try {
-      await requestAnalysis(finding.id);
-      toast('info', 'AI Analysis requested. Generating...', 10000);
-
-      // Poll gently for completion
-      let attempts = 0;
-      const interval = setInterval(async () => {
-        attempts++;
-        try {
-          const data = await fetchFindingAnalysis(finding.id);
-          setAnalysis(data);
-          setErrorAnalysis(null);
-          clearInterval(interval);
-          setRequestingAnalysis(false);
-          toast('success', 'AI Analysis completed successfully!');
-        } catch {
-          if (attempts > 12) {
-            clearInterval(interval);
-            setRequestingAnalysis(false);
-            toast('error', 'AI Analysis timed out. Try refreshing later.');
-          }
-        }
-      }, 3000);
-
-    } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Failed to request analysis');
-      setRequestingAnalysis(false);
-    }
-  }
 
   /* ── Full loading ── */
   if (loadingFinding) {
@@ -276,13 +258,12 @@ export default function FindingDetailPage() {
             </Card>
           ) : errorAnalysis || !analysis ? (
             <Card>
-              <div style={{ textAlign: 'center', padding: 'var(--space-4)', color: 'var(--color-neutral-500)' }}>
-                <Info size={24} style={{ marginBottom: 'var(--space-2)' }} />
-                <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-3)' }}>No AI enrichment available for this finding yet.</p>
-                <Button size="sm" variant="primary" onClick={handleRequestAnalysis} loading={requestingAnalysis}>
-                  <Brain size={14} style={{ marginRight: '6px', verticalAlign: 'middle', display: 'inline-block' }} />
-                  <span style={{ verticalAlign: 'middle' }}>Generate AI Analysis</span>
-                </Button>
+              <div style={{ padding: 'var(--space-2)' }}>
+                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-neutral-600)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <Brain size={16} /> Generating AI Enrichment...
+                </p>
+                <Skeleton variant="text" width="60%" />
+                <Skeleton variant="text" lines={4} />
               </div>
             </Card>
           ) : (

@@ -23,6 +23,7 @@ from shared.firestore_models import ScanArtifactDoc
 from shared.logging import get_logger
 from shared.repositories.finding_store import FindingStore
 from shared.repositories.scan_store import ScanStore
+from shared.pubsub_client import publish_analyze_finding
 
 from scan_runner.normalize import normalize_findings
 from scan_runner.repo_fetcher import cleanup_repo, clone_repo
@@ -137,13 +138,17 @@ async def run_scan_pipeline(scan_id: str) -> None:
         sca_count = sca_result.get("total", 0)
         docs_sca = normalize_findings(scan_id, sca_result)
 
-        # ── Step 11.5: Save all findings to Firestore ────────────────────
+        # ── Step 11.5: Save all findings to Firestore and trigger AI Analysis ──
         all_docs = docs_static + docs_sca
         if all_docs:
             logger.info("pipeline_saving_findings", count=len(all_docs))
             # Firestore batches allow max 500 writes; chunking to 450 to be safe
             for idx in range(0, len(all_docs), 450):
                 await finding_store.create_findings(all_docs[idx:idx+450])
+                
+            logger.info("pipeline_triggering_ai_analysis", count=len(all_docs))
+            for doc in all_docs:
+                publish_analyze_finding(doc.id)
 
         # ── Step 12: Update scan record ──────────────────────────────────
         await scan_store.update_scan(scan_id, {

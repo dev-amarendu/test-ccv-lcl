@@ -6,6 +6,8 @@ from typing import Any, Callable, Coroutine
 
 from mcp_server.tools.veracode_tools import veracode_run_full_scan
 from mcp_server.tools.bitbucket_tools import bitbucket_get_pull_request
+from mcp_server.tools.analysis_tools import mcp_request_analysis, mcp_get_finding_analysis
+from mcp_server.tools.kb_tools import mcp_kb_search, mcp_kb_get_card
 
 ToolHandler = Callable[[dict[str, Any]], Coroutine[Any, Any, Any]]
 
@@ -23,7 +25,12 @@ def get_tool_registry() -> dict[str, ToolHandler]:
             # Bitbucket (optional)
             "bitbucket.get_pull_request": bitbucket_get_pull_request,
 
-            # TODO: Add Analyst Agent Tools here
-            # TODO: Add Knowledge Base Tools here
+            # Analyst Agent Tools
+            "analysis.request_analysis": mcp_request_analysis,
+            "analysis.get_analysis": mcp_get_finding_analysis,
+
+            # Knowledge Base Tools
+            "kb.search": mcp_kb_search,
+            "kb.get_card": mcp_kb_get_card,
         }
     return _registry
