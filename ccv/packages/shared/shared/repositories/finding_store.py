@@ -49,9 +49,7 @@ class FindingStore:
         if severity:
             query = query.where("severity", "==", severity)
         
-        mapped_filters = any([scan_id, cwe_id is not None, severity])
-        if not mapped_filters:
-            query = query.order_by("created_at", direction="DESCENDING")
+        query = query.order_by("created_at", direction="DESCENDING")
 
         # Count
         count_query = query.count()

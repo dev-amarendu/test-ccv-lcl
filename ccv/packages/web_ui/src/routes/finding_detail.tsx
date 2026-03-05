@@ -18,7 +18,7 @@ import { useToast } from '@/components/ui/toast';
 import { CodeViewer } from '@/components/code_viewer';
 import { SeverityBadge } from '@/components/severity_badge';
 
-import { fetchFinding, fetchFindingAnalysis } from '@/api/findings';
+import { fetchFinding, fetchFindingAnalysis, requestAnalysis } from '@/api/findings';
 import { createKBCard } from '@/api/knowledge';
 import type { Finding, FindingAnalysis } from '@/api/types';
 
@@ -65,6 +65,7 @@ export default function FindingDetailPage() {
   const [errorFinding, setErrorFinding] = useState<string | null>(null);
   const [errorAnalysis, setErrorAnalysis] = useState<string | null>(null);
   const [addingToKB, setAddingToKB] = useState(false);
+  const [generatingAnalysis, setGeneratingAnalysis] = useState(false);
 
   useEffect(() => {
     if (!findingId) return;
@@ -147,6 +148,35 @@ export default function FindingDetailPage() {
     }
   }
 
+  /* ── Generate AI Analysis ── */
+  async function handleGenerateAnalysis() {
+    if (!findingId) return;
+    setGeneratingAnalysis(true);
+    setErrorAnalysis(null);
+    try {
+      await requestAnalysis(findingId);
+      // Poll until analysis is ready
+      const poll = setInterval(async () => {
+        try {
+          const data = await fetchFindingAnalysis(findingId);
+          setAnalysis(data);
+          setErrorAnalysis(null);
+          setGeneratingAnalysis(false);
+          clearInterval(poll);
+        } catch {
+          // Keep polling
+        }
+      }, 3000);
+      // Safety timeout after 2 min
+      setTimeout(() => {
+        clearInterval(poll);
+        setGeneratingAnalysis(false);
+      }, 120_000);
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Failed to request analysis');
+      setGeneratingAnalysis(false);
+    }
+  }
 
   /* ── Full loading ── */
   if (loadingFinding) {
@@ -267,12 +297,26 @@ export default function FindingDetailPage() {
             </Card>
           ) : errorAnalysis || !analysis ? (
             <Card>
-              <div style={{ padding: 'var(--space-2)' }}>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-neutral-600)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  <Brain size={16} /> Generating AI Enrichment...
-                </p>
-                <Skeleton variant="text" width="60%" />
-                <Skeleton variant="text" lines={4} />
+              <div style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
+                {generatingAnalysis ? (
+                  <>
+                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-neutral-600)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}>
+                      <Brain size={16} /> Generating AI Enrichment...
+                    </p>
+                    <Skeleton variant="text" width="60%" />
+                    <Skeleton variant="text" lines={4} />
+                  </>
+                ) : (
+                  <>
+                    <Brain size={32} style={{ color: 'var(--color-neutral-300)', marginBottom: 'var(--space-3)' }} />
+                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-neutral-500)', marginBottom: 'var(--space-4)' }}>
+                      No AI analysis has been generated yet for this finding.
+                    </p>
+                    <Button variant="primary" onClick={handleGenerateAnalysis}>
+                      <Brain size={16} /> Generate AI Analysis
+                    </Button>
+                  </>
+                )}
               </div>
             </Card>
           ) : (

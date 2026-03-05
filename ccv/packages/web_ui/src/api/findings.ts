@@ -19,8 +19,14 @@ export async function fetchFindings(
       params: filters as Record<string, string | number | boolean | undefined>,
     });
   } catch (err) {
-    if (err instanceof MockModeActive)
-      return mockFindings as unknown as PaginatedResponse<Finding>;
+    if (err instanceof MockModeActive) {
+      const mock = mockFindings as unknown as PaginatedResponse<Finding>;
+      if (filters?.scan_id) {
+        const filtered = mock.items.filter((f) => f.scan_id === filters.scan_id);
+        return { items: filtered, total: filtered.length, page: 1, page_size: 50 };
+      }
+      return mock;
+    }
     throw err;
   }
 }
