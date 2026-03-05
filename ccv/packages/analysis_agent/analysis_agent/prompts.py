@@ -24,6 +24,7 @@ class AnalysisOutput(BaseModel):
     root_cause: str
     risk: str
     fix_guidance: str
+    code_snippet: str | None = None
     cwe_references: list[str] = []
 
 
@@ -50,6 +51,7 @@ OUTPUT JSON SCHEMA:
   "root_cause": "string — technical explanation of why this vulnerability exists",
   "risk": "string — business and security risk if exploited",
   "fix_guidance": "string — step-by-step remediation guidance (no code patches)",
+  "code_snippet": "string — the exact contextual lines of code containing the vulnerability, extracted from the input if provided",
   "cwe_references": [
     "string — CWE-ID and title, e.g. CWE-79: Improper Neutralization …"
   ]

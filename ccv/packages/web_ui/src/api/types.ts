@@ -77,6 +77,7 @@ export interface FindingAnalysis {
   root_cause: string;
   risk: string;
   fix_guidance: string;
+  code_snippet?: string;
   references_json?: Record<string, unknown> | null;
   provenance_json?: Record<string, unknown> | null;
   confidence?: number | null;

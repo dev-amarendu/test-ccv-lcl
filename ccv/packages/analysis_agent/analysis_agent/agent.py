@@ -283,6 +283,7 @@ async def analyze_finding(finding_id: str) -> None:
         root_cause=output.root_cause,
         risk=output.risk,
         fix_guidance=output.fix_guidance,
+        code_snippet=output.code_snippet,
         references_json={"cwe_references": output.cwe_references},
         provenance_json={
             "framework": "google-adk",

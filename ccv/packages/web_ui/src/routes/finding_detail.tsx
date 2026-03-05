@@ -179,7 +179,16 @@ export default function FindingDetailPage() {
     );
   }
 
-  const snippet = parseCodeSnippet(finding.code_snippet_json);
+  // Prioritize Vertex AI excerpt from Analysis, fallback to raw SAST finding JSON mapping.
+  const snippet = (analysis?.code_snippet)
+    ? {
+      code: analysis.code_snippet,
+      startLine: 1, // LLM rarely provides strict line numbers natively without line injection
+      highlightLines: [],
+      filePath: finding.file_path,
+    }
+    : parseCodeSnippet(finding.code_snippet_json);
+
   const fixSteps = analysis ? parseFixSteps(analysis) : [];
   const references = analysis ? parseReferences(analysis.references_json) : [];
 

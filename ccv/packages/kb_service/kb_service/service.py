@@ -17,7 +17,7 @@ from shared.config import get_settings
 from shared.firestore_models import KBFixCardDoc
 from shared.logging import get_logger, set_request_id, setup_logging
 from shared.schemas import (
-    KBCardUpsertRequest,
+    KBFixCardCreateRequest,
     KBFixCardResponse,
     KBSearchResponse,
     KBSearchResult,
@@ -78,7 +78,7 @@ async def search_cards(
 
 
 @app.post("/kb/v1/admin/cards/upsert", response_model=KBFixCardResponse)
-async def upsert_card(body: KBCardUpsertRequest) -> KBFixCardResponse:
+async def upsert_card(body: KBFixCardCreateRequest) -> KBFixCardResponse:
     """Admin endpoint: upsert a Fix Card."""
     embedding = None
     try:
