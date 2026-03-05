@@ -26,14 +26,13 @@ import {
   deleteSchedule,
   runScheduleNow,
 } from '@/api/schedules';
-import type { Branch, Schedule, ArtifactMode } from '@/api/types';
+import type { Branch, Schedule } from '@/api/types';
 
 /* ── Row type ── */
 interface ScheduleRow extends Record<string, unknown> {
   id: string;
   repo_id: string;
   branch: string;
-  artifact_mode: ArtifactMode;
   interval_minutes: number;
   enabled: boolean;
   next_run_at: string | null;
@@ -51,7 +50,6 @@ export default function SchedulesPage() {
   /* Form state */
   const [formRepoSlug, setFormRepoSlug] = useState('');
   const [formBranch, setFormBranch] = useState('');
-  const [formArtifactMode, setFormArtifactMode] = useState<ArtifactMode>('none');
   const [formInterval, setFormInterval] = useState('60');
   const [submitting, setSubmitting] = useState(false);
 
@@ -113,7 +111,6 @@ export default function SchedulesPage() {
       const s = await createSchedule({
         repo_id: formRepoSlug,
         branch: formBranch,
-        artifact_mode: formArtifactMode,
         interval_minutes: parseInt(formInterval, 10) || 60,
         enabled: true,
       });
@@ -273,16 +270,6 @@ export default function SchedulesPage() {
               value={formBranch}
               onChange={(e) => setFormBranch(e.target.value)}
               disabled={!formRepoSlug}
-            />
-            <Select
-              label="Artifact Mode"
-              options={[
-                { value: 'none', label: 'None' },
-                { value: 'latest', label: 'Latest' },
-                { value: 'pinned', label: 'Pinned' },
-              ]}
-              value={formArtifactMode}
-              onChange={(e) => setFormArtifactMode(e.target.value as ArtifactMode)}
             />
             <Input
               label="Interval (minutes)"

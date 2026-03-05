@@ -26,11 +26,6 @@ class ScanStatusEnum(str, Enum):
     FAILED = "FAILED"
 
 
-class ArtifactModeEnum(str, Enum):
-    AUTO = "AUTO"
-    EXPLICIT_URI = "EXPLICIT_URI"
-
-
 # ── Repo ──────────────────────────────────────────────────────────────────────
 
 
@@ -156,7 +151,6 @@ class AnalysisSummaryResponse(BaseModel):
 class ScheduleCreateRequest(BaseModel):
     repo_id: str
     branch: str
-    artifact_mode: ArtifactModeEnum = ArtifactModeEnum.AUTO
     artifact_uri: str | None = None
     interval_minutes: int | None = 60
     cron_expression: str | None = None  # e.g. "0 9 * * 1" for 9am Monday
@@ -164,7 +158,6 @@ class ScheduleCreateRequest(BaseModel):
 
 class ScheduleUpdateRequest(BaseModel):
     branch: str | None = None
-    artifact_mode: ArtifactModeEnum | None = None
     artifact_uri: str | None = None
     interval_minutes: int | None = None
     cron_expression: str | None = None
@@ -175,7 +168,6 @@ class ScheduleResponse(BaseModel):
     id: str
     repo_id: str
     branch: str
-    artifact_mode: ArtifactModeEnum
     artifact_uri: str | None = None
     interval_minutes: int | None = None
     cron_expression: str | None = None

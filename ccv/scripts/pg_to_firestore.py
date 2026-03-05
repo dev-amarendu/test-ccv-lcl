@@ -306,7 +306,6 @@ async def migrate_schedules(pg_cur, fs_db):
             id=doc_id,
             repo_id=str(row['repo_id']),
             branch=row['branch'],
-            artifact_mode=row['artifact_mode'],
             artifact_uri=row['artifact_uri'],
             interval_minutes=row['interval_minutes'],
             enabled=row['enabled'],

@@ -33,7 +33,6 @@ logger = get_logger(__name__)
 def _schedule_response(s: ScheduleDoc) -> ScheduleResponse:
     return ScheduleResponse(
         id=s.id, repo_id=s.repo_id, branch=s.branch,
-        artifact_mode=s.artifact_mode.value,
         interval_minutes=s.interval_minutes,
         cron_expression=s.cron_expression,
         enabled=s.enabled, next_run_at=s.next_run_at,
@@ -69,7 +68,6 @@ async def create_schedule(
         id=str(generate_uuid()),
         repo_id=str(body.repo_id),
         branch=body.branch,
-        artifact_mode=body.artifact_mode.value,
         # artifact_uri intentionally ignored server-side (frontend no longer supplies artifact URIs)
         interval_minutes=body.interval_minutes,
         cron_expression=body.cron_expression,

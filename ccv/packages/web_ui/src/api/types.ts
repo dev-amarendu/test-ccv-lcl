@@ -9,8 +9,6 @@ export type ScanStatus =
   | "failed"
   | "cancelled";
 
-export type ArtifactMode = "latest" | "pinned" | "none";
-
 export type Severity = "critical" | "high" | "medium" | "low" | "info";
 
 // ─── Core domain models ─────────────────────────────────────────────────────
@@ -89,7 +87,6 @@ export interface Schedule {
   id: string;
   repo_id: string;
   branch: string;
-  artifact_mode: ArtifactMode;
   interval_minutes: number;
   enabled: boolean;
   next_run_at?: string | null;
@@ -151,14 +148,12 @@ export interface ManualScanRequest {
 export interface CreateScheduleRequest {
   repo_id: string;
   branch: string;
-  artifact_mode: ArtifactMode;
   interval_minutes: number;
   enabled?: boolean;
 }
 
 export interface UpdateScheduleRequest {
   branch?: string;
-  artifact_mode?: ArtifactMode;
   interval_minutes?: number;
   enabled?: boolean;
 }

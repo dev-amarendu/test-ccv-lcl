@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api_service.main import app
-from shared.firestore_models import ScheduleDoc, RepoDoc, ArtifactMode
+from shared.firestore_models import ScheduleDoc, RepoDoc
 from shared.repositories.schedule_store import ScheduleStore
 
 # Mock Repo

@@ -176,7 +176,6 @@ class ScheduleDoc(BaseModel):
     id: str = Field(default_factory=_new_id)
     repo_id: str
     branch: str
-    artifact_mode: ArtifactMode = ArtifactMode.AUTO
     artifact_uri: str | None = None
     interval_minutes: int | None = 60
     cron_expression: str | None = None
