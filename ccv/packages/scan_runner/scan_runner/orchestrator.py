@@ -139,7 +139,16 @@ async def run_scan_pipeline(scan_id: str) -> None:
         docs_sca = normalize_findings(scan_id, sca_result)
 
         # ── Step 11.5: Save all findings to Firestore and trigger AI Analysis ──
-        all_docs = docs_static + docs_sca
+        docs_report = normalize_findings(scan_id, report)
+        
+        # Deduplicate across the 3 streams (static REST, SCA REST, Detailed XML)
+        all_docs = []
+        seen = set()
+        for doc in docs_static + docs_sca + docs_report:
+            if doc.fingerprint not in seen:
+                all_docs.append(doc)
+                seen.add(doc.fingerprint)
+                
         if all_docs:
             logger.info("pipeline_saving_findings", count=len(all_docs))
             # Firestore batches allow max 500 writes; chunking to 450 to be safe

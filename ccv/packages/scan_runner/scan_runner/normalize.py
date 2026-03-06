@@ -22,6 +22,8 @@ def normalize_findings(scan_id: str, raw_results: dict) -> list[FindingDoc]:
         items = raw_results.get("findings", [])
     if not items and isinstance(raw_results, list):
         items = raw_results
+    if not items and isinstance(raw_results, dict) and "flaws" in raw_results:
+        items = raw_results["flaws"]
 
     findings: list[FindingDoc] = []
     seen_fingerprints = set()
@@ -32,7 +34,7 @@ def normalize_findings(scan_id: str, raw_results: dict) -> list[FindingDoc]:
     for item in items:
         details = item.get("finding_details", {})
 
-        cwe_id = int(details.get("cwe", {}).get("id", item.get("cwe_id", 0)))
+        cwe_id = int(details.get("cwe", {}).get("id", item.get("cwe_id", item.get("cweid", 0))))
         
         raw_sev = details.get("severity", item.get("severity", 3))
         if isinstance(raw_sev, (int, float)) or (isinstance(raw_sev, str) and raw_sev.isdigit()):
@@ -50,10 +52,16 @@ def normalize_findings(scan_id: str, raw_results: dict) -> list[FindingDoc]:
             else:
                 severity = sev_str
         title = (
-            details.get("finding_category", {}).get("name", "")
-            or item.get("title", "Unknown Finding")
+            details.get("finding_category", {}).get("name")
+            or details.get("cwe", {}).get("name")
+            or item.get("categoryname")
+            or item.get("title")
+            or details.get("title")
+            or item.get("description", "")[:100]
+            or details.get("component_filename")
+            or "Unknown Finding"
         )
-        file_path = details.get("file_path", item.get("file_path", "unknown"))
+        file_path = details.get("file_path", item.get("file_path", item.get("sourcefile", "unknown")))
         line = details.get("file_line_number") or item.get("line")
 
         fp = stable_fingerprint(str(cwe_id), file_path, str(line or ""), title)
