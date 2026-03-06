@@ -130,6 +130,7 @@ class FindingAnalysisResponse(BaseModel):
     root_cause: str
     risk: str
     fix_guidance: str
+    code_snippet: str | None = None
     references_json: dict | None = None
     provenance_json: dict | None = None
     confidence: float | None = None

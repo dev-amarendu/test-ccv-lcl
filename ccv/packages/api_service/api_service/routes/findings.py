@@ -139,6 +139,7 @@ async def get_finding_analysis(
         model_name=analysis.model_name, model_version=analysis.model_version,
         root_cause=analysis.root_cause, risk=analysis.risk,
         fix_guidance=analysis.fix_guidance,
+        code_snippet=analysis.code_snippet,
         references_json=analysis.references_json,
         provenance_json=analysis.provenance_json,
         confidence=analysis.confidence,

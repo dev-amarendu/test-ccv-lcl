@@ -72,3 +72,6 @@ class FindingStore:
         async for doc in query.stream():
             return FindingDoc.from_firestore_doc(doc.to_dict())
         return None
+
+    async def update_finding(self, finding_id: str, updates: dict) -> None:
+        await self._col.document(finding_id).update(updates)
