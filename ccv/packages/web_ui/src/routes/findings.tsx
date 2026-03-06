@@ -58,7 +58,7 @@ export default function FindingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const filters: FindingFilters = { page: 1, page_size: 50 };
+      const filters: FindingFilters = { page: 1, page_size: 500 };
       if (scanId) filters.scan_id = scanId;
       if (filterSeverity) filters.severity = filterSeverity as SeverityType;
 

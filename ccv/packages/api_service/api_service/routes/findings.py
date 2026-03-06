@@ -34,7 +34,7 @@ async def list_findings(
     kind: str | None = Query(None, description="Set to 'kb' to list KB fix cards instead"),
     severity: str | None = Query(None),
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
+    page_size: int = Query(500, ge=1, le=1000),
     db: AsyncClient = Depends(db_session),
 ) -> FindingListResponse | dict:
     """List findings with rich filtering.
