@@ -134,12 +134,25 @@ async def run_scan_pipeline(scan_id: str) -> None:
 
         # ── Step 11: Get SCA findings ────────────────────────────────────
         logger.info("pipeline_step_11_sca_findings")
-        sca_result = veracode_api.get_sca_findings(app_guid, sandbox_guid)
-        sca_count = sca_result.get("total", 0)
-        docs_sca = normalize_findings(scan_id, sca_result)
+        docs_sca = []
+        sca_count = 0
+        try:
+            sca_result = veracode_api.get_sca_findings(app_guid, sandbox_guid)
+            sca_count = sca_result.get("total", 0)
+            logger.info("sca_result_structure", total=sca_count, 
+                       keys=list(sca_result.keys()) if isinstance(sca_result, dict) else str(type(sca_result)))
+            docs_sca = normalize_findings(scan_id, sca_result)
+        except Exception as sca_exc:
+            import traceback
+            logger.error("sca_findings_failed", error=str(sca_exc), traceback=traceback.format_exc())
 
         # ── Step 11.5: Save all findings to Firestore and trigger AI Analysis ──
-        docs_report = normalize_findings(scan_id, report)
+        docs_report = []
+        try:
+            docs_report = normalize_findings(scan_id, report)
+        except Exception as rpt_exc:
+            import traceback
+            logger.error("report_normalization_failed", error=str(rpt_exc), traceback=traceback.format_exc())
         
         # Deduplicate across the 3 streams (static REST, SCA REST, Detailed XML)
         all_docs = []

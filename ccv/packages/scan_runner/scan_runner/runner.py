@@ -57,11 +57,13 @@ async def execute_scan(scan_id: str) -> None:
         logger.info("scan_runner_completed", scan_id=scan_id)
 
     except Exception as exc:
-        logger.error("scan_runner_failed", scan_id=scan_id, error=str(exc))
+        import traceback
+        tb_str = traceback.format_exc()
+        logger.error("scan_runner_failed", scan_id=scan_id, error=str(exc), traceback=tb_str)
         await scan_store.update_scan(scan_id, {
             "status": ScanStatus.FAILED.value,
             "finished_at": datetime.now(timezone.utc),
-            "error_message": str(exc)[:2000],
+            "error_message": f"{str(exc)[:1500]}\n\nTraceback:\n{tb_str[:500]}",
         })
 
 

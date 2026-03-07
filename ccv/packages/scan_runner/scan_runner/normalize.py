@@ -32,7 +32,8 @@ def normalize_findings(scan_id: str, raw_results: dict) -> list[FindingDoc]:
     }
 
     for item in items:
-        details = item.get("finding_details", {})
+      try:
+        details = item.get("finding_details", {}) if isinstance(item, dict) else {}
 
         cwe_id = int(details.get("cwe", {}).get("id", item.get("cwe_id", item.get("cweid", 0))))
         
@@ -81,7 +82,7 @@ def normalize_findings(scan_id: str, raw_results: dict) -> list[FindingDoc]:
 
         line = details.get("file_line_number") or item.get("line")
 
-        fp = stable_fingerprint(str(cwe_id), file_path, str(line or ""), title)
+        fp = stable_fingerprint(str(cwe_id), str(file_path), str(line or ""), str(title))
 
         if fp in seen_fingerprints:
             continue
@@ -98,6 +99,10 @@ def normalize_findings(scan_id: str, raw_results: dict) -> list[FindingDoc]:
             fingerprint=fp,
             raw_source_json=item,
         ))
+      except Exception as exc:
+        logger.warning("finding_normalization_skipped", error=str(exc),
+                       item_keys=list(item.keys()) if isinstance(item, dict) else str(type(item)))
+        continue
 
     logger.info("findings_normalized", scan_id=scan_id, count=len(findings))
     return findings

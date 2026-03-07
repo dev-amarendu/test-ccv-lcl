@@ -19,7 +19,8 @@ def stable_fingerprint(*parts: str) -> str:
 
         fingerprint = stable_fingerprint(str(cwe_id), file_path, str(line), title)
     """
-    raw = "|".join(parts)
+    # Defensive: coerce every part to a flat string even if a list/dict sneaks in
+    raw = "|".join(str(p) for p in parts)
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
