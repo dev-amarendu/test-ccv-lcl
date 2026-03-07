@@ -51,7 +51,7 @@ def normalize_findings(scan_id: str, raw_results: dict) -> list[FindingDoc]:
                 severity = "medium"
             else:
                 severity = sev_str
-        title = (
+        raw_title = (
             details.get("finding_category", {}).get("name")
             or details.get("cwe", {}).get("name")
             or item.get("categoryname")
@@ -61,7 +61,11 @@ def normalize_findings(scan_id: str, raw_results: dict) -> list[FindingDoc]:
             or details.get("component_filename")
             or "Unknown Finding"
         )
-        file_path = (
+        if isinstance(raw_title, list):
+            raw_title = raw_title[0] if raw_title else "Unknown Finding"
+        title = str(raw_title)
+
+        raw_file_path = (
             details.get("file_path")
             or item.get("file_path")
             or item.get("sourcefile")
@@ -71,6 +75,10 @@ def normalize_findings(scan_id: str, raw_results: dict) -> list[FindingDoc]:
             or item.get("component_filename")
             or "unknown"
         )
+        if isinstance(raw_file_path, list):
+            raw_file_path = raw_file_path[0] if raw_file_path else "unknown"
+        file_path = str(raw_file_path)
+
         line = details.get("file_line_number") or item.get("line")
 
         fp = stable_fingerprint(str(cwe_id), file_path, str(line or ""), title)
