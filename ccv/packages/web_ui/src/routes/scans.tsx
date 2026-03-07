@@ -1,10 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  Filter,
-  ChevronDown,
-  ChevronUp,
-  RotateCcw,
   Eye,
   AlertCircle,
   Activity,
@@ -14,19 +10,16 @@ import {
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/toast';
 import { Table, type Column } from '@/components/ui/table';
 
-import { fetchScans, rerunScan } from '@/api/scans';
+import { fetchScans } from '@/api/scans';
 import type {
   Scan,
   ScanStatus,
   TriggerType,
-  ScanFilters,
 } from '@/api/types';
 
 /* ── Status badge ── */
@@ -68,68 +61,28 @@ interface ScanRow extends Record<string, unknown> {
 
 export default function ScansPage() {
   const navigate = useNavigate();
-  const { toast, ToastContainer } = useToast();
+  const { ToastContainer } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scans, setScans] = useState<Scan[]>([]);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [rerunning, setRerunning] = useState<string | null>(null);
-
-  /* Filters */
-  const [filterRepo, setFilterRepo] = useState('');
-  const [filterBranch, setFilterBranch] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterTrigger, setFilterTrigger] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
 
   const loadScans = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const filters: ScanFilters = { page: 1, page_size: 50 };
-      if (filterRepo) filters.repo_id = filterRepo;
-      if (filterBranch) filters.branch = filterBranch;
-      if (filterStatus) filters.status = filterStatus as ScanStatus;
-      if (filterTrigger) filters.trigger_type = filterTrigger as TriggerType;
-
-      const scansRes = await fetchScans(filters);
-      let items = scansRes.items;
-      if (filterDateFrom) {
-        const from = new Date(filterDateFrom).getTime();
-        items = items.filter((s) => new Date(s.created_at).getTime() >= from);
-      }
-      if (filterDateTo) {
-        const to = new Date(filterDateTo).getTime();
-        items = items.filter((s) => new Date(s.created_at).getTime() <= to);
-      }
-
-      setScans(items);
+      const scansRes = await fetchScans();
+      setScans(scansRes.items);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load scans');
     } finally {
       setLoading(false);
     }
-  }, [filterRepo, filterBranch, filterStatus, filterTrigger, filterDateFrom, filterDateTo]);
+  }, []);
 
   useEffect(() => {
     loadScans();
   }, [loadScans]);
-
-  /* ── Rerun ── */
-  async function handleRerun(scanId: string) {
-    setRerunning(scanId);
-    try {
-      const newScan = await rerunScan(scanId);
-      toast('success', 'Scan re-triggered');
-      navigate(`/scans/${newScan.id}`);
-    } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Re-run failed');
-    } finally {
-      setRerunning(null);
-    }
-  }
 
   /* ── Progress for running scans ── */
   function getProgress(scan: Scan): number {
@@ -139,7 +92,7 @@ export default function ScansPage() {
     return Math.min(95, Math.round((elapsed / estimated) * 100));
   }
 
-  /* ── Repo name lookup — disabled as module is removed ── */
+  /* ── Repo name lookup ── */
   function repoName(id: string): string {
     return id;
   }
@@ -184,16 +137,13 @@ export default function ScansPage() {
     {
       header: '',
       accessor: 'id',
-      width: '60px',
+      width: '140px',
       render: (_val, row) => (
-        <button
-          type="button"
-          onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-neutral-500)', padding: 'var(--space-1)' }}
-          aria-label="Expand"
-        >
-          {expandedId === row.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
+        <Link to={`/findings?scan_id=${row.id}`} style={{ textDecoration: 'none' }}>
+          <Button size="sm" variant="secondary">
+            <Eye size={14} /> View Findings
+          </Button>
+        </Link>
       ),
     },
   ];
@@ -249,137 +199,22 @@ export default function ScansPage() {
         </Button>
       </div>
 
-      {/* Filters bar */}
-      <Card padding="sm">
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-          <Filter size={16} style={{ color: 'var(--color-neutral-400)', marginBottom: 8 }} />
-          <Input
-            label="Repo Slug"
-            placeholder="e.g. my-app"
-            value={filterRepo}
-            onChange={(e) => setFilterRepo(e.target.value)}
-            wrapperStyle={{ minWidth: 150 }}
-          />
-          <Input
-            label="Branch"
-            placeholder="Any"
-            value={filterBranch}
-            onChange={(e) => setFilterBranch(e.target.value)}
-            wrapperStyle={{ minWidth: 120 }}
-          />
-          <Select
-            label="Status"
-            options={[
-              { value: '', label: 'All' },
-              { value: 'queued', label: 'Queued' },
-              { value: 'running', label: 'Running' },
-              { value: 'completed', label: 'Completed' },
-              { value: 'failed', label: 'Failed' },
-              { value: 'cancelled', label: 'Cancelled' },
-            ]}
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            wrapperStyle={{ minWidth: 120 }}
-          />
-          <Input
-            label="From"
-            type="date"
-            value={filterDateFrom}
-            onChange={(e) => setFilterDateFrom(e.target.value)}
-            wrapperStyle={{ minWidth: 140 }}
-          />
-          <Input
-            label="To"
-            type="date"
-            value={filterDateTo}
-            onChange={(e) => setFilterDateTo(e.target.value)}
-            wrapperStyle={{ minWidth: 140 }}
-          />
-          <Select
-            label="Trigger"
-            options={[
-              { value: '', label: 'All' },
-              { value: 'manual', label: 'Manual' },
-              { value: 'push', label: 'Push' },
-              { value: 'pr', label: 'PR' },
-              { value: 'schedule', label: 'Schedule' },
-            ]}
-            value={filterTrigger}
-            onChange={(e) => setFilterTrigger(e.target.value)}
-            wrapperStyle={{ minWidth: 120 }}
-          />
-        </div>
-      </Card>
-
       {/* Empty state */}
       {scans.length === 0 ? (
         <Card>
           <div style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
             <Activity size={40} style={{ color: 'var(--color-neutral-300)', marginBottom: 'var(--space-3)' }} />
             <p style={{ color: 'var(--color-neutral-500)', fontSize: 'var(--font-size-sm)' }}>
-              No scans match the current filters.
+              No scans found.
             </p>
           </div>
         </Card>
       ) : (
-        <>
-          <Table<ScanRow>
-            columns={columns}
-            data={scans as unknown as ScanRow[]}
-            rowKey={(row) => row.id}
-          />
-
-          {/* Expanded row detail */}
-          {expandedId && (() => {
-            const scan = scans.find((s) => s.id === expandedId);
-            if (!scan) return null;
-            return (
-              <Card style={{ borderLeft: '4px solid var(--color-primary-400)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-neutral-800)' }}>
-                    Scan Summary
-                  </h3>
-                  <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-neutral-600)' }}>
-                    {scan.status === 'failed'
-                      ? `Error: ${scan.error_message ?? 'Unknown error'}`
-                      : `Scan on ${repoName(scan.repo_id)} / ${scan.branch} triggered by ${scan.trigger_type}.`}
-                  </p>
-
-                  {scan.status === 'failed' && scan.error_message && (
-                    <div
-                      style={{
-                        padding: 'var(--space-3)',
-                        background: 'var(--color-critical-50)',
-                        border: '1px solid var(--color-critical-200)',
-                        borderRadius: 'var(--radius-md)',
-                        fontSize: 'var(--font-size-sm)',
-                        color: 'var(--color-critical-700)',
-                      }}
-                    >
-                      {scan.error_message}
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                    <Link to={`/findings?scan_id=${scan.id}`} style={{ textDecoration: 'none' }}>
-                      <Button size="sm" variant="secondary">
-                        <Eye size={14} /> View findings
-                      </Button>
-                    </Link>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      loading={rerunning === scan.id}
-                      onClick={() => handleRerun(scan.id)}
-                    >
-                      <RotateCcw size={14} /> Re-run
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            );
-          })()}
-        </>
+        <Table<ScanRow>
+          columns={columns}
+          data={scans as unknown as ScanRow[]}
+          rowKey={(row) => row.id}
+        />
       )}
 
       <ToastContainer />

@@ -102,10 +102,10 @@ export function App() {
             <Route path="/manual-scan" element={<ManualScanPage />} />
             <Route path="/scans" element={<ScansPage />} />
             <Route path="/scans/:scanId" element={<ScanDetailPage />} />
-            <Route path="/scans/:scanId/findings" element={<FindingsPage />} />
-            <Route path="/scans/:scanId/findings/:findingId" element={<FindingDetailPage />} />
             <Route path="/allfindings" element={<FindingsPage />} />
             <Route path="/allfindings/:findingId" element={<FindingDetailPage />} />
+            <Route path="/findings" element={<FindingsPage />} />
+            <Route path="/findings/:findingId" element={<FindingDetailPage />} />
             <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
             <Route path="/schedules" element={<SchedulesPage />} />
             <Route path="/mock-mode" element={<MockModePage />} />

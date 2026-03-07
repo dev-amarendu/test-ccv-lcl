@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Eye,
   Copy,
@@ -38,7 +38,9 @@ interface FindingRow extends Record<string, unknown> {
 
 export default function FindingsPage() {
   const navigate = useNavigate();
-  const { scanId } = useParams<{ scanId?: string }>();
+  const { scanId: paramScanId } = useParams<{ scanId?: string }>();
+  const [searchParams] = useSearchParams();
+  const scanId = paramScanId || searchParams.get('scan_id') || undefined;
   const { toast, ToastContainer } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -199,9 +201,7 @@ export default function FindingsPage() {
       accessor: 'id',
       width: '180px',
       render: (_val, row) => {
-        const detailUrl = scanId
-          ? `/scans/${scanId}/findings/${row.id}`
-          : `/allfindings/${row.id}`;
+        const detailUrl = `/findings/${row.id}`;
 
         return (
           <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
