@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Eye,
   Copy,
@@ -38,8 +38,7 @@ interface FindingRow extends Record<string, unknown> {
 
 export default function FindingsPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const scanId = searchParams.get('scan_id');
+  const { scanId } = useParams<{ scanId?: string }>();
   const { toast, ToastContainer } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -199,16 +198,22 @@ export default function FindingsPage() {
       header: 'Actions',
       accessor: 'id',
       width: '180px',
-      render: (_val, row) => (
-        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-          <Button size="sm" variant="secondary" onClick={() => navigate(`/findings/${row.id}`)}>
-            <Eye size={14} /> View
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => handleCopyLink(row.id)}>
-            <Copy size={14} />
-          </Button>
-        </div>
-      ),
+      render: (_val, row) => {
+        const detailUrl = scanId
+          ? `/scans/${scanId}/findings/${row.id}`
+          : `/allfindings/${row.id}`;
+
+        return (
+          <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+            <Button size="sm" variant="secondary" onClick={() => navigate(detailUrl)}>
+              <Eye size={14} /> View
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => handleCopyLink(row.id)}>
+              <Copy size={14} />
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 

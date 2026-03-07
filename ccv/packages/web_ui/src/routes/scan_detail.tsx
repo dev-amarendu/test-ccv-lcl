@@ -146,7 +146,7 @@ export default function ScanDetailPage() {
 
                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                         {scan.status === 'completed' && findingCount !== null && (
-                            <Button variant="primary" onClick={() => navigate(`/findings?scan_id=${scan.id}`)}>
+                            <Button variant="primary" onClick={() => navigate(`/scans/${scan.id}/findings`)}>
                                 <Shield size={16} /> View {findingCount} Findings
                             </Button>
                         )}

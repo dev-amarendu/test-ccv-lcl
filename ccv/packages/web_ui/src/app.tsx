@@ -29,7 +29,7 @@ const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/manual-scan', label: 'Manual Scan', icon: ScanSearch },
   { to: '/scans', label: 'Scans', icon: Activity },
-  { to: '/findings', label: 'Findings', icon: AlertTriangle },
+  { to: '/allfindings', label: 'All Findings', icon: AlertTriangle },
   { to: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen },
   { to: '/schedules', label: 'Schedules', icon: Clock },
   { to: '/mock-mode', label: 'Mock Mode', icon: FlaskConical },
@@ -102,8 +102,10 @@ export function App() {
             <Route path="/manual-scan" element={<ManualScanPage />} />
             <Route path="/scans" element={<ScansPage />} />
             <Route path="/scans/:scanId" element={<ScanDetailPage />} />
-            <Route path="/findings" element={<FindingsPage />} />
-            <Route path="/findings/:findingId" element={<FindingDetailPage />} />
+            <Route path="/scans/:scanId/findings" element={<FindingsPage />} />
+            <Route path="/scans/:scanId/findings/:findingId" element={<FindingDetailPage />} />
+            <Route path="/allfindings" element={<FindingsPage />} />
+            <Route path="/allfindings/:findingId" element={<FindingDetailPage />} />
             <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
             <Route path="/schedules" element={<SchedulesPage />} />
             <Route path="/mock-mode" element={<MockModePage />} />

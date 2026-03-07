@@ -55,7 +55,7 @@ function parseReferences(json: Record<string, unknown> | null | undefined): { la
 }
 
 export default function FindingDetailPage() {
-  const { findingId } = useParams<{ findingId: string }>();
+  const { scanId, findingId } = useParams<{ scanId?: string; findingId: string }>();
   const { toast, ToastContainer } = useToast();
 
   const [finding, setFinding] = useState<Finding | null>(null);
@@ -194,13 +194,14 @@ export default function FindingDetailPage() {
 
   /* ── Error loading finding ── */
   if (errorFinding || !finding) {
+    const backUrl = scanId ? `/scans/${scanId}/findings` : '/allfindings';
     return (
       <div style={{ padding: 'var(--space-6)' }}>
         <Card>
           <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-critical-600)' }}>
             <Shield size={40} style={{ marginBottom: 'var(--space-3)' }} />
             <p>{errorFinding ?? 'Finding not found'}</p>
-            <Link to="/findings" style={{ color: 'var(--color-primary-600)', textDecoration: 'none', fontSize: 'var(--font-size-sm)' }}>
+            <Link to={backUrl} style={{ color: 'var(--color-primary-600)', textDecoration: 'none', fontSize: 'var(--font-size-sm)' }}>
               ← Back to findings
             </Link>
           </div>
@@ -222,11 +223,13 @@ export default function FindingDetailPage() {
   const fixSteps = analysis ? parseFixSteps(analysis) : [];
   const references = analysis ? parseReferences(analysis.references_json) : [];
 
+  const backUrl = scanId ? `/scans/${scanId}/findings` : '/allfindings';
+
   return (
     <div style={{ padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-        <Link to="/findings" style={{ color: 'var(--color-neutral-500)', textDecoration: 'none', fontSize: 'var(--font-size-sm)' }}>
+        <Link to={backUrl} style={{ color: 'var(--color-neutral-500)', textDecoration: 'none', fontSize: 'var(--font-size-sm)' }}>
           ← Findings
         </Link>
         <SeverityBadge severity={finding.severity} />
