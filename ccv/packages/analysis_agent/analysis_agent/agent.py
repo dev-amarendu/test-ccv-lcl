@@ -65,6 +65,8 @@ def _ensure_vertex_env() -> None:
 # ── ADK Agent factory ─────────────────────────────────────────────────────────
 
 
+from analysis_agent.tools import lookup_kb_fix_card, search_codebase_for_snippet
+
 def _create_analysis_agent():
     """Create and return the ADK Agent for vulnerability analysis."""
     from google.adk.agents import Agent
@@ -80,7 +82,7 @@ def _create_analysis_agent():
             "root-cause analysis, risk assessment, and remediation guidance."
         ),
         instruction=AGENT_INSTRUCTION,
-        tools=[lookup_kb_fix_card],
+        tools=[lookup_kb_fix_card, search_codebase_for_snippet],
     )
     return agent
 
@@ -295,10 +297,21 @@ async def analyze_finding(finding_id: str) -> None:
     await analysis_store.create_analysis(analysis)
 
     # Update finding enrichment columns
-    await finding_store.update_finding(finding_id, {
+    update_data = {
         "enrichment_summary": output.root_cause[:200],
         "enrichment_confidence": 0.85,
-    })
+    }
+    
+    # If the LLM successfully extracted missing data using the codebase search tool
+    if output.extracted_file_path and "unknown" in finding.file_path.lower():
+        update_data["file_path"] = output.extracted_file_path
+        logger.info("llm_extracted_file_path", finding_id=finding_id, path=output.extracted_file_path)
+    
+    if output.extracted_snippet and (not finding.code_snippet_json or not finding.code_snippet_json.get("snippet")):
+        update_data["code_snippet_json"] = {"snippet": output.extracted_snippet}
+        logger.info("llm_extracted_snippet", finding_id=finding_id, size=len(output.extracted_snippet))
+        
+    await finding_store.update_finding(finding_id, update_data)
 
     await audit_store.log_entry(AuditLogDoc(
         request_id=rid,

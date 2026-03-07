@@ -26,7 +26,7 @@ from shared.repositories.scan_store import ScanStore
 from shared.pubsub_client import publish_analyze_finding
 
 from scan_runner.normalize import normalize_findings
-from scan_runner.repo_fetcher import cleanup_repo, clone_repo
+from shared.repo_fetcher import cleanup_repo, clone_repo
 from scan_runner.maven_builder import build_maven_project
 from scan_runner import veracode_api
 

@@ -25,6 +25,8 @@ class AnalysisOutput(BaseModel):
     risk: str
     fix_guidance: str
     code_snippet: str | None = None
+    extracted_file_path: str | None = None
+    extracted_snippet: str | None = None
     cwe_references: list[str] = []
 
 
@@ -52,6 +54,8 @@ OUTPUT JSON SCHEMA:
   "risk": "string — business and security risk if exploited",
   "fix_guidance": "string — step-by-step remediation guidance (no code patches)",
   "code_snippet": "string — the exact contextual lines of code containing the vulnerability, extracted from the input if provided",
+  "extracted_file_path": "string — populated only if you ran search_codebase_for_snippet",
+  "extracted_snippet": "string — populated only if you ran search_codebase_for_snippet",
   "cwe_references": [
     "string — CWE-ID and title, e.g. CWE-79: Improper Neutralization …"
   ]
@@ -60,6 +64,7 @@ OUTPUT JSON SCHEMA:
 RULES:
 - Output ONLY valid JSON matching the schema above.
 - Be specific: reference the exact CWE, file path, and code context provided.
+- If the file path provided is 'unknown', you MUST call the `search_codebase_for_snippet` tool using words from the title or description to find the file in the repository. Provide the real file path in `extracted_file_path` and the code in `extracted_snippet`.
 - Do NOT generate code patches or diffs.
 - Do NOT make policy decisions (pass/fail).
 - Keep each field concise (under 500 words).

@@ -61,7 +61,16 @@ def normalize_findings(scan_id: str, raw_results: dict) -> list[FindingDoc]:
             or details.get("component_filename")
             or "Unknown Finding"
         )
-        file_path = details.get("file_path", item.get("file_path", item.get("sourcefile", "unknown")))
+        file_path = (
+            details.get("file_path")
+            or item.get("file_path")
+            or item.get("sourcefile")
+            or details.get("component_path")
+            or details.get("component_filename")
+            or item.get("component_path")
+            or item.get("component_filename")
+            or "unknown"
+        )
         line = details.get("file_line_number") or item.get("line")
 
         fp = stable_fingerprint(str(cwe_id), file_path, str(line or ""), title)

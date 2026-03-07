@@ -174,6 +174,28 @@ export default function FindingsPage() {
         ),
     },
     {
+      header: 'Scan ID',
+      accessor: 'scan_id',
+      width: '120px',
+      render: (val) => (
+        <Tooltip content={val as string}>
+          <span style={{ fontFamily: 'monospace', fontSize: 'var(--font-size-xs)', color: 'var(--color-neutral-600)' }}>
+            {(val as string).split('-').slice(0, 2).join('-')}…
+          </span>
+        </Tooltip>
+      ),
+    },
+    {
+      header: 'Created',
+      accessor: 'created_at',
+      width: '120px',
+      render: (val) => (
+        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-neutral-600)' }}>
+          {new Date(val as string).toLocaleDateString()}
+        </span>
+      ),
+    },
+    {
       header: 'Actions',
       accessor: 'id',
       width: '180px',
