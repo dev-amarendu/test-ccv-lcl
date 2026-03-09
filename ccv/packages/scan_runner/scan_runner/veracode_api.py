@@ -204,7 +204,7 @@ def _get_rest_findings(app_guid: str, sandbox_guid: str | None, scan_type: str) 
     auth = _get_auth()
     url = f"{settings.veracode_rest_base.rstrip('/')}/appsec/v2/applications/{app_guid}/findings"
     
-    params: dict[str, str] = {"scan_type": scan_type}
+    params: dict[str, str] = {"scan_type": scan_type, "size": "500", "new": "true"}
     if sandbox_guid: params["context"] = sandbox_guid
 
     resp = requests.get(url, params=params, auth=auth, timeout=120)

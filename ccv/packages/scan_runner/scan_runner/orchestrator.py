@@ -32,6 +32,73 @@ from scan_runner import veracode_api
 
 logger = get_logger(__name__)
 
+SNIPPET_CONTEXT_LINES = 10  # Lines above/below the target line to include
+
+
+def _extract_snippets(repo_path: str, all_docs: list) -> None:
+    """Walk through findings and attach code_snippet_json from the local repo.
+
+    For each finding that has a valid file_path (not 'unknown') and line number,
+    we try to read the source file from the downloaded repo and extract a
+    window of ±SNIPPET_CONTEXT_LINES around the target line.
+
+    Mutates the FindingDoc objects in-place.
+    """
+    import os
+    from pathlib import Path
+
+    repo = Path(repo_path)
+    # Pre-build a filename→path index for fuzzy matching
+    file_index: dict[str, Path] = {}
+    for root, _, files in os.walk(repo):
+        if any(skip in root for skip in (".git", "node_modules", "target", "__pycache__")):
+            continue
+        for fname in files:
+            full = Path(root) / fname
+            file_index[fname.lower()] = full
+
+    for doc in all_docs:
+        try:
+            if doc.code_snippet_json and doc.code_snippet_json.get("snippet"):
+                continue  # Already has a snippet
+
+            fp = doc.file_path
+            if not fp or fp.lower() == "unknown":
+                continue
+
+            # Try exact path match relative to repo root
+            candidate = repo / fp
+            if not candidate.is_file():
+                # Try just the filename (Veracode often returns just the basename)
+                basename = os.path.basename(fp).lower()
+                candidate = file_index.get(basename)
+                if not candidate or not candidate.is_file():
+                    continue
+
+            # Read and extract context window
+            try:
+                content = candidate.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
+
+            lines = content.splitlines()
+            target_line = doc.line or 1
+            start = max(0, target_line - SNIPPET_CONTEXT_LINES - 1)
+            end = min(len(lines), target_line + SNIPPET_CONTEXT_LINES)
+            snippet_lines = lines[start:end]
+
+            if snippet_lines:
+                rel_path = str(candidate.relative_to(repo)) if repo in candidate.parents or candidate.parent == repo else fp
+                doc.code_snippet_json = {
+                    "snippet": "\n".join(snippet_lines),
+                    "file_path": rel_path,
+                    "start_line": start + 1,
+                    "highlight_lines": [target_line] if doc.line else [],
+                }
+        except Exception:
+            # Never let snippet extraction crash the pipeline
+            continue
+
 
 async def run_scan_pipeline(scan_id: str) -> None:
     """Execute the full Veracode scan pipeline for a manual/scheduled scan natively."""
@@ -163,14 +230,27 @@ async def run_scan_pipeline(scan_id: str) -> None:
                 seen.add(doc.fingerprint)
                 
         if all_docs:
+            # ── Step 11.6: Extract code snippets while repo is still on disk ──
+            if repo_path:
+                logger.info("pipeline_extracting_snippets", count=len(all_docs))
+                _extract_snippets(repo_path, all_docs)
+                snippets_found = sum(1 for d in all_docs if d.code_snippet_json and d.code_snippet_json.get("snippet"))
+                logger.info("pipeline_snippets_extracted", found=snippets_found, total=len(all_docs))
+
             logger.info("pipeline_saving_findings", count=len(all_docs))
             # Firestore batches allow max 500 writes; chunking to 450 to be safe
             for idx in range(0, len(all_docs), 450):
                 await finding_store.create_findings(all_docs[idx:idx+450])
                 
-            logger.info("pipeline_triggering_ai_analysis", count=len(all_docs))
-            for doc in all_docs:
-                publish_analyze_finding(doc.id)
+            logger.info("pipeline_triggering_ai_analysis", scan_id=scan_id)
+            try:
+                from analysis_agent.agent import analyze_scan
+                await analyze_scan(scan_id)
+            except ImportError:
+                logger.warning("analysis_agent_not_available_for_scan_analysis")
+                # Fallback: publish per-finding messages
+                for doc in all_docs:
+                    publish_analyze_finding(doc.id)
 
         # ── Step 12: Update scan record ──────────────────────────────────
         await scan_store.update_scan(scan_id, {
