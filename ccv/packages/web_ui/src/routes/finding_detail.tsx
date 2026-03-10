@@ -210,8 +210,8 @@ export default function FindingDetailPage() {
     );
   }
 
-  // Prioritize Vertex AI excerpt from Analysis, fallback to finding's snippet JSON,
-  // then try to extract from raw_source_json (Veracode raw data) as last resort.
+  // Prioritize: 1) LLM analysis snippet, 2) orchestrator-extracted snippet,
+  // 3) placeholder with option to fetch from repo on-demand.
   let snippet: { code: string; startLine: number; highlightLines: number[]; filePath: string };
 
   if (analysis?.code_snippet) {
@@ -224,27 +224,12 @@ export default function FindingDetailPage() {
   } else if (finding.code_snippet_json && (finding.code_snippet_json.snippet || finding.code_snippet_json.code)) {
     snippet = parseCodeSnippet(finding.code_snippet_json);
   } else {
-    // Try to extract from raw_source_json (Veracode detailed report or REST findings)
-    const raw = finding.raw_source_json;
-    let rawSnippet = '';
-    if (raw) {
-      rawSnippet =
-        (raw.description as string) ||
-        (raw.snippet as string) ||
-        (raw.code_snippet as string) ||
-        ((raw.finding_details as Record<string, unknown>)?.snippet as string) ||
-        '';
-    }
-    if (rawSnippet) {
-      snippet = {
-        code: rawSnippet,
-        startLine: finding.line || 1,
-        highlightLines: finding.line ? [finding.line] : [],
-        filePath: finding.file_path,
-      };
-    } else {
-      snippet = { code: '// No code snippet available', startLine: 1, highlightLines: [], filePath: finding.file_path };
-    }
+    snippet = {
+      code: '// Code snippet not yet extracted. Click "Fetch Code Snippet" below to retrieve it from the repository.',
+      startLine: 1,
+      highlightLines: [],
+      filePath: finding.file_path,
+    };
   }
 
   const fixSteps = analysis ? parseFixSteps(analysis) : [];

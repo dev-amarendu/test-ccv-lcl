@@ -238,6 +238,28 @@ async def run_scan_pipeline(scan_id: str) -> None:
                 logger.info("pipeline_snippets_extracted", found=snippets_found, total=len(all_docs))
 
             logger.info("pipeline_saving_findings", count=len(all_docs))
+
+            # ── Dedup check: remove findings already in Firestore for this scan ──
+            existing_fps = set()
+            try:
+                from google.cloud.firestore_v1 import FieldFilter
+                existing_query = db.collection("findings").where(
+                    filter=FieldFilter("scan_id", "==", scan_id)
+                ).select(["fingerprint"])
+                async for snap in existing_query.stream():
+                    fp = snap.to_dict().get("fingerprint")
+                    if fp:
+                        existing_fps.add(fp)
+            except Exception as dedup_exc:
+                logger.warning("dedup_query_failed", error=str(dedup_exc))
+
+            if existing_fps:
+                before = len(all_docs)
+                all_docs = [d for d in all_docs if d.fingerprint not in existing_fps]
+                skipped = before - len(all_docs)
+                if skipped:
+                    logger.info("pipeline_dedup_skipped", skipped=skipped, remaining=len(all_docs))
+
             # Firestore batches allow max 500 writes; chunking to 450 to be safe
             for idx in range(0, len(all_docs), 450):
                 await finding_store.create_findings(all_docs[idx:idx+450])

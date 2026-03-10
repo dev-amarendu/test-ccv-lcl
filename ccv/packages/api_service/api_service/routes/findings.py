@@ -12,6 +12,7 @@ from shared.repositories.analysis_store import AnalysisStore
 from shared.repositories.audit_store import AuditStore
 from shared.repositories.finding_store import FindingStore
 from shared.repositories.kb_store import KBFixCardStore
+from shared.repositories.scan_store import ScanStore
 from shared.schemas import (
     FindingAnalysisResponse,
     FindingListResponse,
@@ -183,3 +184,127 @@ async def request_finding_analysis(
 
     logger.info("analysis_requested", finding_id=finding_id)
     return {"status": "accepted", "finding_id": finding_id}
+
+
+# ── POST /backfill-snippets/{scan_id} — extract real code from repo ──────────
+
+
+async def _do_backfill_snippets(scan_id: str) -> None:
+    """Background task: clone repo, extract snippets, update findings."""
+    from shared.firestore_client import get_firestore_client
+    from shared.repositories.finding_store import FindingStore
+    from shared.repositories.scan_store import ScanStore
+    from shared.repo_fetcher import clone_repo, cleanup_repo
+    import os
+    from pathlib import Path
+
+    db = get_firestore_client()
+    scan_store = ScanStore(db)
+    finding_store = FindingStore(db)
+
+    scan = await scan_store.get_scan(scan_id)
+    if not scan:
+        logger.error("backfill_scan_not_found", scan_id=scan_id)
+        return
+
+    # Get all findings for this scan
+    findings, total = await finding_store.list_findings(scan_id=scan_id, page=1, page_size=500)
+    if not findings:
+        logger.info("backfill_no_findings", scan_id=scan_id)
+        return
+
+    # Only process findings that don't already have a snippet
+    needs_snippet = [
+        f for f in findings
+        if not f.code_snippet_json or not f.code_snippet_json.get("snippet")
+    ]
+    if not needs_snippet:
+        logger.info("backfill_all_have_snippets", scan_id=scan_id)
+        return
+
+    logger.info("backfill_starting", scan_id=scan_id, count=len(needs_snippet))
+
+    repo_path = None
+    try:
+        repo_path = clone_repo(scan.repo_id, scan.branch)
+        repo = Path(repo_path)
+
+        # Pre-build filename→path index
+        file_index: dict[str, Path] = {}
+        for root, _, files in os.walk(repo):
+            if any(skip in root for skip in (".git", "node_modules", "target", "__pycache__")):
+                continue
+            for fname in files:
+                full = Path(root) / fname
+                file_index[fname.lower()] = full
+
+        updated = 0
+        context_lines = 10
+
+        for finding in needs_snippet:
+            try:
+                fp = finding.file_path
+                if not fp or fp.lower() == "unknown":
+                    continue
+
+                # Try exact path match
+                candidate = repo / fp
+                if not candidate.is_file():
+                    basename = os.path.basename(fp).lower()
+                    candidate = file_index.get(basename)
+                    if not candidate or not candidate.is_file():
+                        continue
+
+                content = candidate.read_text(encoding="utf-8", errors="ignore")
+                lines = content.splitlines()
+                target_line = finding.line or 1
+                start = max(0, target_line - context_lines - 1)
+                end = min(len(lines), target_line + context_lines)
+                snippet_lines = lines[start:end]
+
+                if snippet_lines:
+                    rel_path = str(candidate.relative_to(repo)) if repo in candidate.parents or candidate.parent == repo else fp
+                    snippet_json = {
+                        "snippet": "\n".join(snippet_lines),
+                        "file_path": rel_path,
+                        "start_line": start + 1,
+                        "highlight_lines": [target_line] if finding.line else [],
+                    }
+                    await finding_store.update_finding(finding.id, {
+                        "code_snippet_json": snippet_json,
+                    })
+                    updated += 1
+            except Exception:
+                continue
+
+        logger.info("backfill_done", scan_id=scan_id, updated=updated, total=len(needs_snippet))
+
+    except Exception as exc:
+        logger.error("backfill_failed", scan_id=scan_id, error=str(exc), exc_info=True)
+    finally:
+        if repo_path:
+            cleanup_repo(repo_path)
+
+
+@router.post("/backfill-snippets/{scan_id}", status_code=202)
+async def backfill_snippets(
+    scan_id: str,
+    background_tasks: BackgroundTasks,
+    db: AsyncClient = Depends(db_session),
+) -> dict:
+    """Extract real code snippets from the repo for all findings in a scan.
+
+    This clones the repository, reads the actual source files, and extracts
+    ±10 lines of context around each finding's reported line number.
+    Runs as a background task.
+    """
+    scan_store = ScanStore(db)
+    scan = await scan_store.get_scan(scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    background_tasks.add_task(_do_backfill_snippets, scan_id)
+
+    logger.info("backfill_snippets_queued", scan_id=scan_id)
+    return {"status": "accepted", "scan_id": scan_id, "message": "Snippet extraction started in background"}
+
