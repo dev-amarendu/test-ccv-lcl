@@ -2,6 +2,7 @@ import type {
   KBFixCard,
   CreateKBCardRequest,
   UpdateKBCardRequest,
+  PaginatedResponse,
 } from "./types";
 import { apiFetch, MockModeActive } from "./client";
 
@@ -12,9 +13,10 @@ import mockKB from "../mock/kb.json";
  */
 export async function fetchKBCards(): Promise<KBFixCard[]> {
   try {
-    return await apiFetch<KBFixCard[]>("/api/findings", {
+    const res = await apiFetch<PaginatedResponse<KBFixCard>>("/api/findings", {
       params: { kind: "kb" },
     });
+    return res.items;
   } catch (err) {
     if (err instanceof MockModeActive) return mockKB as KBFixCard[];
     throw err;
