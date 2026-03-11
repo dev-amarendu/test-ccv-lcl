@@ -88,12 +88,28 @@ def begin_prescan(app_id: str, sandbox_id: str | None = None, api_base: str = "h
     resp.raise_for_status()
 
 
-def poll_prescan_until_complete(app_id: str, sandbox_id: str | None = None, build_id: str | None = None, poll_interval: int = 15, timeout: int = 900, api_base: str = "https://analysiscenter.veracode.com") -> dict:
+def poll_prescan_until_complete(
+    app_id: str, 
+    sandbox_id: str | None = None, 
+    build_id: str | None = None, 
+    poll_interval: int = 15, 
+    timeout: int = 900, 
+    api_base: str = "https://analysiscenter.veracode.com",
+    cancel_check: Any = None
+) -> dict:
     auth = _get_auth()
     url = f"{api_base}/api/5.0/getprescanresults.do"
     data: dict[str, str] = {"app_id": str(app_id)}
     if sandbox_id: data["sandbox_id"] = str(sandbox_id)
     if build_id: data["build_id"] = str(build_id)
+
+    def _sleep_with_check(seconds: int) -> None:
+        for _ in range(seconds // 2):
+            if cancel_check and cancel_check():
+                raise InterruptedError("Scan cancelled by user")
+            time.sleep(2)
+        if seconds % 2 != 0:
+            time.sleep(1)
 
     start = time.time()
     attempt = 0
@@ -102,7 +118,7 @@ def poll_prescan_until_complete(app_id: str, sandbox_id: str | None = None, buil
         resp = requests.post(url, data=data, auth=auth, timeout=60)
         if resp.status_code in (429, 502, 503, 504):
             logger.warning("veracode_prescan_poll_retry", code=resp.status_code, attempt=attempt)
-            time.sleep(min(5 * attempt, 30))
+            _sleep_with_check(min(5 * attempt, 30))
             continue
         resp.raise_for_status()
         
@@ -113,14 +129,14 @@ def poll_prescan_until_complete(app_id: str, sandbox_id: str | None = None, buil
             if time.time() - start > timeout:
                 raise RuntimeError("Prescan timed out — no modules found")
             logger.info("veracode_prescan_poll_waiting", reason="no_modules_yet", attempt=attempt)
-            time.sleep(poll_interval)
+            _sleep_with_check(poll_interval)
             continue
 
         if any(s in {"Queued", "Pre-Scan Submitted", "Pre-Scan Running"} for s in module_statuses):
             if time.time() - start > timeout:
                 raise RuntimeError(f"Prescan timed out. Statuses: {module_statuses}")
             logger.info("veracode_prescan_poll_waiting", statuses=list(module_statuses), attempt=attempt)
-            time.sleep(poll_interval)
+            _sleep_with_check(poll_interval)
             continue
 
         logger.info("veracode_prescan_poll_complete", statuses=list(module_statuses), attempts=attempt)

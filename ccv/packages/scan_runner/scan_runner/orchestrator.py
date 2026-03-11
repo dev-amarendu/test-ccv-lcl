@@ -15,6 +15,7 @@ Sequence:
 from __future__ import annotations
 
 import asyncio
+import traceback
 from datetime import datetime, timezone
 
 from shared.config import get_settings
