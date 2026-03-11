@@ -104,6 +104,28 @@ export async function rerunScan(id: string): Promise<Scan> {
 }
 
 /**
+ * Cancel the running scan.
+ */
+export async function cancelScan(id: string): Promise<Scan> {
+  try {
+    return await apiFetch<Scan>(
+      `/api/scans/manual/${encodeURIComponent(id)}/cancel`,
+      { method: "POST" },
+    );
+  } catch (err) {
+    if (err instanceof MockModeActive) {
+      const original = (
+        mockScans as unknown as PaginatedResponse<Scan>
+      ).items.find((s) => s.id === id);
+      if (!original) throw new Error(`Mock scan not found: ${id}`);
+      const now = new Date().toISOString();
+      return { ...original, status: "cancelled", updated_at: now };
+    }
+    throw err;
+  }
+}
+
+/**
  * Trigger a repository sync (re-imports repos/branches from the SCM).
  */
 export async function triggerSync(): Promise<void> {

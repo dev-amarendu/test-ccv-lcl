@@ -4,14 +4,12 @@ import {
   Shield,
   FileCode,
   Brain,
-  Copy,
   BookPlus,
   ExternalLink,
 } from 'lucide-react';
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip } from '@/components/ui/tooltip';
 import { useToast } from '@/components/ui/toast';
@@ -21,8 +19,6 @@ import { SeverityBadge } from '@/components/severity_badge';
 import { fetchFinding, fetchFindingAnalysis, requestAnalysis } from '@/api/findings';
 import { createKBCard } from '@/api/knowledge';
 import type { Finding, FindingAnalysis } from '@/api/types';
-
-
 
 /* ── Parse code snippet from JSON ── */
 function parseCodeSnippet(json: Record<string, unknown> | null | undefined): {
@@ -46,12 +42,6 @@ function parseFixSteps(analysis: FindingAnalysis): string[] {
   // Split by numbered list or newline
   const lines = guidance.split(/\n/).filter((l) => l.trim());
   return lines.map((l) => l.replace(/^\d+\.\s*/, '').trim());
-}
-
-/* ── Parse references ── */
-function parseReferences(json: Record<string, unknown> | null | undefined): { label: string; url: string }[] {
-  if (!json) return [];
-  return Object.entries(json).map(([label, url]) => ({ label, url: String(url) }));
 }
 
 export default function FindingDetailPage() {
@@ -117,15 +107,6 @@ export default function FindingDetailPage() {
     return () => { cancelled = true; };
   }, [findingId]);
 
-  /* ── Copy fix steps ── */
-  function handleCopyFix() {
-    if (!analysis) return;
-    const steps = parseFixSteps(analysis);
-    const text = steps.map((s, i) => `${i + 1}. ${s}`).join('\n');
-    navigator.clipboard?.writeText(text);
-    toast('info', 'Fix steps copied to clipboard');
-  }
-
   /* ── Add to validated learnings ── */
   async function handleAddToKB() {
     if (!finding || !analysis) return;
@@ -139,6 +120,7 @@ export default function FindingDetailPage() {
         fix_steps_json: { steps: parseFixSteps(analysis) },
         content: analysis.fix_guidance,
         source: `finding:${finding.id}`,
+        risk: analysis.risk
       });
       toast('success', 'Added to Knowledge Base as validated learning');
     } catch (err) {
@@ -210,8 +192,8 @@ export default function FindingDetailPage() {
     );
   }
 
-  // Prioritize: 1) LLM analysis snippet, 2) orchestrator-extracted snippet,
-  // 3) placeholder with option to fetch from repo on-demand.
+  // Prioritize Vertex AI excerpt from Analysis, fallback to finding's snippet JSON,
+  // then try to extract from raw_source_json (Veracode raw data) as last resort.
   let snippet: { code: string; startLine: number; highlightLines: number[]; filePath: string };
 
   if (analysis?.code_snippet) {
@@ -224,16 +206,30 @@ export default function FindingDetailPage() {
   } else if (finding.code_snippet_json && (finding.code_snippet_json.snippet || finding.code_snippet_json.code)) {
     snippet = parseCodeSnippet(finding.code_snippet_json);
   } else {
-    snippet = {
-      code: '// Code snippet not yet extracted. Click "Fetch Code Snippet" below to retrieve it from the repository.',
-      startLine: 1,
-      highlightLines: [],
-      filePath: finding.file_path,
-    };
+    // Try to extract from raw_source_json (Veracode detailed report or REST findings)
+    const raw = finding.raw_source_json;
+    let rawSnippet = '';
+    if (raw) {
+      rawSnippet =
+        (raw.description as string) ||
+        (raw.snippet as string) ||
+        (raw.code_snippet as string) ||
+        ((raw.finding_details as Record<string, unknown>)?.snippet as string) ||
+        '';
+    }
+    if (rawSnippet) {
+      snippet = {
+        code: rawSnippet,
+        startLine: finding.line || 1,
+        highlightLines: finding.line ? [finding.line] : [],
+        filePath: finding.file_path,
+      };
+    } else {
+      snippet = { code: '// No code snippet available', startLine: 1, highlightLines: [], filePath: finding.file_path };
+    }
   }
 
   const fixSteps = analysis ? parseFixSteps(analysis) : [];
-  const references = analysis ? parseReferences(analysis.references_json) : [];
 
   const backUrl = scanId ? `/scans/${scanId}/findings` : '/allfindings';
 
@@ -250,12 +246,8 @@ export default function FindingDetailPage() {
         </h1>
       </div>
 
-      {/* Three column layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr 320px', gap: 'var(--space-4)', alignItems: 'start' }}>
-
-        {/* Left column: Metadata */}
-        <Card title="Metadata">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <Card title="Metadata">
+          <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
             <MetaRow label="CWE" value={`CWE-${finding.cwe_id}`} />
             <MetaRow label="Severity" value={<SeverityBadge severity={finding.severity} size="sm" />} />
             <MetaRow
@@ -280,8 +272,10 @@ export default function FindingDetailPage() {
             <MetaRow label="Created" value={new Date(finding.created_at).toLocaleString()} />
           </div>
         </Card>
+      {/* Three column layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: '40% 60%', gap: 'var(--space-4)', alignItems: 'start' }}>
 
-        {/* Center: CodeViewer */}
+        {/* left: CodeViewer */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <FileCode size={18} style={{ color: 'var(--color-neutral-500)' }} />
@@ -297,12 +291,12 @@ export default function FindingDetailPage() {
           />
         </div>
 
-        {/* Right column: AI Enrichment */}
+        {/* Right column: AI Recommendation */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <Brain size={18} style={{ color: 'var(--color-primary-600)' }} />
             <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-neutral-800)', margin: 0 }}>
-              AI Enrichment
+              AI Recommendation
             </h2>
           </div>
 
@@ -383,59 +377,8 @@ export default function FindingDetailPage() {
                   </p>
                 </div>
 
-                {/* Confidence */}
-                {analysis.confidence != null && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-neutral-500)', textTransform: 'uppercase' }}>
-                      Confidence
-                    </span>
-                    <Tooltip content="Model confidence in the analysis quality">
-                      <Badge variant={analysis.confidence >= 0.8 ? 'success' : analysis.confidence >= 0.5 ? 'warning' : 'danger'}>
-                        {Math.round(analysis.confidence * 100)}%
-                      </Badge>
-                    </Tooltip>
-                  </div>
-                )}
-
-                {/* References */}
-                {references.length > 0 && (
-                  <div>
-                    <h4 style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--color-neutral-500)', margin: '0 0 var(--space-1)', letterSpacing: '0.04em' }}>
-                      References
-                    </h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-                      {references.map((ref) => (
-                        <a
-                          key={ref.label}
-                          href={ref.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-primary-600)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}
-                        >
-                          <ExternalLink size={10} /> {ref.label}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Provenance */}
-                {analysis.provenance_json && (
-                  <div>
-                    <h4 style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--color-neutral-500)', margin: '0 0 var(--space-1)', letterSpacing: '0.04em' }}>
-                      Provenance (KB Chunks)
-                    </h4>
-                    <pre style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-neutral-600)', background: 'var(--color-neutral-50)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', overflow: 'auto', maxHeight: 120 }}>
-                      {JSON.stringify(analysis.provenance_json, null, 2)}
-                    </pre>
-                  </div>
-                )}
-
                 {/* CTAs */}
                 <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)', flexWrap: 'wrap' }}>
-                  <Button size="sm" variant="secondary" onClick={handleCopyFix}>
-                    <Copy size={14} /> Copy fix steps
-                  </Button>
                   <Button size="sm" variant="primary" onClick={handleAddToKB} loading={addingToKB}>
                     <BookPlus size={14} /> Add to learnings
                   </Button>

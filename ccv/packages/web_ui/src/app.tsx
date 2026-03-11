@@ -10,8 +10,6 @@ import {
   FlaskConical,
   ChevronLeft,
   ChevronRight,
-  Shield,
-  Menu,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -48,18 +46,14 @@ export function App() {
             onClick={() => setSidebarCollapsed((c) => !c)}
             aria-label="Toggle sidebar"
           >
-            <Menu size={20} />
+            <img src="https://www.cox.com/content/dam/cox/common/icons/ui_components/hamburger-menu.svg" alt="hamburger" />
           </button>
           <Link to="/" className="app-header__brand">
-            <Shield size={24} className="app-header__logo" />
-            <span className="app-header__title">CCV</span>
+             <img src="https://www.cox.com/content/dam/cox/common/icons/ui_components/cox_logo.png" alt="logo" />
+            <span className="app-header__title">Code Vulnerability Report</span>
           </Link>
         </div>
-        <div className="app-header__right">
-          <span className="app-header__env-badge">
-            {import.meta.env.VITE_ENV || 'dev'}
-          </span>
-        </div>
+
       </header>
 
       <div className="app-body">

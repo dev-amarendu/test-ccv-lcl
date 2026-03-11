@@ -9,6 +9,8 @@ export type ScanStatus =
   | "failed"
   | "cancelled";
 
+export type ArtifactMode = "latest" | "pinned" | "none";
+
 export type Severity = "critical" | "high" | "medium" | "low" | "info";
 
 // ─── Core domain models ─────────────────────────────────────────────────────
@@ -166,6 +168,7 @@ export interface CreateKBCardRequest {
   fix_steps_json?: Record<string, unknown>;
   content: string;
   source: string;
+  risk: string;
 }
 
 export interface UpdateKBCardRequest {
@@ -177,3 +180,4 @@ export interface UpdateKBCardRequest {
   source?: string;
   approved?: boolean;
 }
+ 

@@ -1,42 +1,55 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Clock, Info } from 'lucide-react';
+import { Play, Clock } from 'lucide-react';
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 
+import { fetchRepos } from '@/api/repos';
 import { fetchBranches } from '@/api/branches';
 import { triggerManualScan } from '@/api/scans';
-import type { Branch } from '@/api/types';
+import type { Repo, Branch } from '@/api/types';
 
 export default function ManualScanPage() {
   const navigate = useNavigate();
   const { toast, ToastContainer } = useToast();
 
   /* Data state */
+  const [repos, setRepos] = useState<Repo[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   /* Form state */
-  const [repoSlug, setRepoSlug] = useState('');
+  const [repoId, setRepoId] = useState('');
   const [branch, setBranch] = useState('');
 
   /* Validation state */
   const [touched, setTouched] = useState<{ repo: boolean; branch: boolean }>({ repo: false, branch: false });
 
-  /* Skip repo loading for now, user enters slug manually */
+  /* Load repos */
   useEffect(() => {
-    setLoading(false);
+    let cancelled = false;
+    async function load() {
+      try {
+        const data = await fetchRepos();
+        if (!cancelled) setRepos(data);
+      } catch {
+        // silently fall back
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
   }, []);
 
   /* Load branches when repo changes */
   useEffect(() => {
-    if (!repoSlug) {
+    if (!repoId) {
       setBranches([]);
       setBranch('');
       return;
@@ -45,7 +58,7 @@ export default function ManualScanPage() {
     let cancelled = false;
     async function load() {
       try {
-        const data = await fetchBranches(repoSlug);
+        const data = await fetchBranches(repoId);
         if (!cancelled) {
           setBranches(data);
           const defaultBranch = data.find((b) => b.is_default);
@@ -57,12 +70,12 @@ export default function ManualScanPage() {
     }
     load();
     return () => { cancelled = true; };
-  }, [repoSlug]);
+  }, [repoId]);
 
   /* Validation */
-  const repoError = touched.repo && !repoSlug ? 'Repository is required' : undefined;
+  const repoError = touched.repo && !repoId ? 'Repository is required' : undefined;
   const branchError = touched.branch && !branch ? 'Branch is required' : undefined;
-  const isValid = !!repoSlug && !!branch;
+  const isValid = !!repoId && !!branch;
 
   /* Submit */
   async function handleSubmit(e: FormEvent) {
@@ -74,7 +87,7 @@ export default function ManualScanPage() {
     setSubmitting(true);
     try {
       const scan = await triggerManualScan({
-        repo_id: repoSlug,
+        repo_id: repoId,
         branch,
         commit_sha: undefined,
       });
@@ -116,13 +129,14 @@ export default function ManualScanPage() {
 
       <Card>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          {/* Repo slug input */}
-          <Input
-            label="Repository Slug *"
-            placeholder="e.g. my-java-app"
-            value={repoSlug}
+          {/* Repo select */}
+          <Select
+            label="Repository *"
+            placeholder="Select a repository"
+            options={repos.map((r) => ({ value: r.id, label: r.name }))}
+            value={repoId}
             onChange={(e) => {
-              setRepoSlug(e.target.value);
+              setRepoId(e.target.value);
               setTouched((t) => ({ ...t, repo: true }));
             }}
             error={repoError}
@@ -131,7 +145,7 @@ export default function ManualScanPage() {
           {/* Branch select */}
           <Select
             label="Branch *"
-            placeholder={repoSlug ? 'Select a branch' : 'Enter repository slug first'}
+            placeholder={repoId ? 'Select a branch' : 'Select a repository first'}
             options={branches.map((b) => ({ value: b.name, label: `${b.name}${b.is_default ? ' (default)' : ''}` }))}
             value={branch}
             onChange={(e) => {
@@ -139,9 +153,8 @@ export default function ManualScanPage() {
               setTouched((t) => ({ ...t, branch: true }));
             }}
             error={branchError}
-            disabled={!repoSlug}
+            disabled={!repoId}
           />
-
 
           {/* Estimated time */}
           <div
@@ -157,25 +170,7 @@ export default function ManualScanPage() {
           >
             <Clock size={16} style={{ color: 'var(--color-neutral-400)', flexShrink: 0 }} />
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-neutral-600)' }}>
-              Estimated time: <strong>~15 min</strong>
-            </span>
-          </div>
-
-          {/* Dry run hint */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 'var(--space-2)',
-              padding: 'var(--space-3)',
-              background: 'var(--color-primary-50)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--color-primary-200)',
-            }}
-          >
-            <Info size={16} style={{ color: 'var(--color-primary-600)', flexShrink: 0, marginTop: 2 }} />
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-primary-700)', lineHeight: 'var(--line-height-relaxed)' }}>
-              Tip: You can perform a dry run by selecting "Incremental Scan" on a branch with no changes. This validates your pipeline configuration without producing findings.
+              Estimated time: <strong>~15 - 30 min</strong>
             </span>
           </div>
 

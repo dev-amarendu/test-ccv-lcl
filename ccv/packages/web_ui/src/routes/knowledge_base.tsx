@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
-  Plus,
   BookOpen,
   CheckCircle,
   ChevronDown,
@@ -15,32 +14,21 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Modal } from '@/components/ui/modal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 
-import { fetchKBCards, createKBCard } from '@/api/knowledge';
+import { fetchKBCards } from '@/api/knowledge';
 import type { KBFixCard } from '@/api/types';
 
 export default function KnowledgeBasePage() {
   const navigate = useNavigate();
-  const { toast, ToastContainer } = useToast();
+  const { ToastContainer } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cards, setCards] = useState<KBFixCard[]>([]);
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  /* New card modal */
-  const [showModal, setShowModal] = useState(false);
-  const [formSummary, setFormSummary] = useState('');
-  const [formTitle, setFormTitle] = useState('');
-  const [formTags, setFormTags] = useState('');
-  const [formFixSteps, setFormFixSteps] = useState('');
-  const [formCwe, setFormCwe] = useState('');
-  const [formSource, setFormSource] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,39 +56,6 @@ export default function KnowledgeBasePage() {
       String(c.cwe_id).includes(q)
     );
   });
-
-  /* Create card */
-  async function handleCreate() {
-    if (!formTitle.trim()) {
-      toast('warning', 'Title is required');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const newCard = await createKBCard({
-        cwe_id: parseInt(formCwe, 10) || 0,
-        title: formTitle.trim(),
-        tags: formTags.split(',').map((t) => t.trim()).filter(Boolean),
-        summary: formSummary || undefined,
-        fix_steps_json: formFixSteps ? { steps: formFixSteps.split('\n').filter(Boolean) } : undefined,
-        content: formSummary || formTitle,
-        source: formSource || 'manual',
-      });
-      setCards((prev) => [newCard, ...prev]);
-      setShowModal(false);
-      setFormTitle('');
-      setFormSummary('');
-      setFormTags('');
-      setFormFixSteps('');
-      setFormCwe('');
-      setFormSource('');
-      toast('success', 'KB card created successfully');
-    } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Failed to create card');
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   /* Loading */
   if (loading) {
@@ -140,9 +95,6 @@ export default function KnowledgeBasePage() {
         <h1 style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 'var(--font-weight-bold)', color: 'var(--color-neutral-900)' }}>
           Knowledge Base
         </h1>
-        <Button onClick={() => setShowModal(true)}>
-          <Plus size={16} /> Add New
-        </Button>
       </div>
 
       {/* Search */}
@@ -174,11 +126,6 @@ export default function KnowledgeBasePage() {
             <p style={{ color: 'var(--color-neutral-500)', fontSize: 'var(--font-size-sm)' }}>
               {search ? 'No results match your search.' : 'No knowledge base entries yet. Add your first validated learning.'}
             </p>
-            {!search && (
-              <Button variant="secondary" onClick={() => setShowModal(true)} style={{ marginTop: 'var(--space-3)' }}>
-                <Plus size={14} /> Add New
-              </Button>
-            )}
           </div>
         </Card>
       ) : (
@@ -288,73 +235,6 @@ export default function KnowledgeBasePage() {
           })}
         </div>
       )}
-
-      {/* Create Modal */}
-      <Modal open={showModal} onClose={() => setShowModal(false)} title="Add Knowledge Base Entry" maxWidth={560}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          <Input
-            label="Title *"
-            placeholder="e.g. SQL Injection Fix Pattern"
-            value={formTitle}
-            onChange={(e) => setFormTitle(e.target.value)}
-          />
-          <Input
-            label="CWE ID"
-            type="number"
-            placeholder="e.g. 89"
-            value={formCwe}
-            onChange={(e) => setFormCwe(e.target.value)}
-          />
-          <Input
-            label="Summary"
-            placeholder="Brief description of the fix pattern"
-            value={formSummary}
-            onChange={(e) => setFormSummary(e.target.value)}
-          />
-          <Input
-            label="Tags (comma separated)"
-            placeholder="sql-injection, parameterized-query"
-            value={formTags}
-            onChange={(e) => setFormTags(e.target.value)}
-          />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-neutral-700)' }}>
-              Fix Steps (one per line)
-            </label>
-            <textarea
-              value={formFixSteps}
-              onChange={(e) => setFormFixSteps(e.target.value)}
-              rows={4}
-              placeholder={"Replace concatenation with prepared statements\nValidate inputs at boundary\nAdd integration tests"}
-              style={{
-                width: '100%',
-                padding: 'var(--space-2) var(--space-3)',
-                fontSize: 'var(--font-size-sm)',
-                border: '1px solid var(--color-neutral-300)',
-                borderRadius: 'var(--radius-md)',
-                resize: 'vertical',
-                fontFamily: 'inherit',
-              }}
-            />
-          </div>
-          <Input
-            label="Source Finding ID (optional)"
-            placeholder="finding UUID"
-            value={formSource}
-            onChange={(e) => setFormSource(e.target.value)}
-            hint="Link to the original finding that prompted this learning."
-          />
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} loading={submitting}>
-              <Plus size={14} /> Create
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
       <ToastContainer />
     </div>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert,
   TrendingUp,
@@ -7,8 +7,6 @@ import {
   Activity,
   Play,
   Eye,
-  RotateCcw,
-  BookOpen,
 } from 'lucide-react';
 
 import { Card } from '@/components/ui/card';
@@ -18,14 +16,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, type Column } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 
-import { fetchScans, rerunScan } from '@/api/scans';
+import { fetchScans } from '@/api/scans';
 import { fetchFindings } from '@/api/findings';
-import { fetchKBCards } from '@/api/knowledge';
-import type { Scan, Finding, KBFixCard, ScanStatus } from '@/api/types';
+import type { Scan, Finding, ScanStatus } from '@/api/types';
 
-/* ── Severity display helper ── */
 /* ── Status badge variant mapping ── */
 function statusBadge(status: ScanStatus) {
+  const normalizedStatus = status?.toLowerCase() as ScanStatus;
   const map: Record<ScanStatus, { variant: 'success' | 'danger' | 'warning' | 'info' | 'default'; label: string }> = {
     completed: { variant: 'success', label: 'Completed' },
     running: { variant: 'info', label: 'Running' },
@@ -33,7 +30,7 @@ function statusBadge(status: ScanStatus) {
     failed: { variant: 'danger', label: 'Failed' },
     cancelled: { variant: 'warning', label: 'Cancelled' },
   };
-  const cfg = map[status] ?? { variant: 'default' as const, label: status };
+  const cfg = map[normalizedStatus] ?? { variant: 'default' as const, label: status };
   return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
 }
 
@@ -116,30 +113,28 @@ interface ScanRow extends Record<string, unknown> {
 /* ── Main component ── */
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { toast, ToastContainer } = useToast();
+  const { ToastContainer } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [scans, setScans] = useState<Scan[]>([]);
+  const [recentScans, setRecentScans] = useState<Scan[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
-  const [kbCards, setKbCards] = useState<KBFixCard[]>([]);
-  const [rerunning, setRerunning] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
-        const [scansRes, findingsRes, kbRes] = await Promise.all([
+        const [scansRes, findingsRes] = await Promise.all([
           fetchScans({ page: 1, page_size: 10 }),
           fetchFindings({ page: 1, page_size: 200 }),
-          fetchKBCards(),
         ]);
         if (cancelled) return;
-        setScans(scansRes.items);
+        setRecentScans(scansRes?.items?.slice(0,5));
+        setScans(scansRes?.items);
         setFindings(findingsRes.items);
-        setKbCards(kbRes);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
       } finally {
@@ -154,29 +149,16 @@ export default function DashboardPage() {
   }, []);
 
   /* ── Derived KPIs ── */
-  const totalOpenFindings = findings.length;
-  const criticalOpen = findings.filter((f) => f.severity === 'critical').length;
+  console.log("get the findings", {scans, findings})
+  const totalOpenFindings = scans.length;
+  const criticalOpen = findings.filter((f) => f.severity?.toLowerCase() === 'critical').length;
 
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-  const newThisWeek = findings.filter((f) => new Date(f.created_at) >= oneWeekAgo).length;
+  const newThisWeek = scans.filter((f) => f.trigger_type?.toLowerCase() === "manual").length;
 
   const lastScan = scans[0];
   const lastScanStatus = lastScan ? lastScan.status : '—';
-
-  /* ── Rerun handler ── */
-  async function handleRerun(scanId: string) {
-    setRerunning(scanId);
-    try {
-      const newScan = await rerunScan(scanId);
-      toast('success', 'Scan re-triggered successfully');
-      navigate(`/scans/${newScan.id}`);
-    } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Failed to re-run scan');
-    } finally {
-      setRerunning(null);
-    }
-  }
 
   /* ── Scan table columns ── */
   const scanColumns: Column<ScanRow>[] = [
@@ -197,18 +179,10 @@ export default function DashboardPage() {
       header: 'Actions',
       accessor: 'id',
       width: '220px',
-      render: (_val, row) => (
+      render: (val) => (
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <Button size="sm" variant="secondary" onClick={() => navigate(`/scans/${row.id}`)}>
+          <Button size="sm" variant="secondary" onClick={() => navigate(`/findings?scan_id=${val}`)}>
             <Eye size={14} /> View
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            loading={rerunning === row.id}
-            onClick={() => handleRerun(row.id)}
-          >
-            <RotateCcw size={14} /> Re-run
           </Button>
         </div>
       ),
@@ -289,9 +263,9 @@ export default function DashboardPage() {
 
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-4)' }}>
-        <KpiCard icon={ShieldAlert} label="Total Open Findings" value={totalOpenFindings} color="var(--color-primary-600)" />
-        <KpiCard icon={TrendingUp} label="New This Week" value={newThisWeek} color="var(--color-warning-600)" />
-        <KpiCard icon={AlertCircle} label="Critical Open" value={criticalOpen} color="var(--color-critical-600)" />
+        <KpiCard icon={ShieldAlert} label="Total Scans Till Date" value={totalOpenFindings} color="var(--color-primary-600)" />
+        <KpiCard icon={TrendingUp} label="Manual Scan" value={newThisWeek} color="var(--color-warning-600)" />
+        <KpiCard icon={AlertCircle} label="Critical Findings" value={criticalOpen} color="var(--color-critical-600)" />
         <KpiCard icon={Activity} label="Last Scan Status" value={lastScanStatus} color="var(--color-success-600)" />
       </div>
 
@@ -299,60 +273,11 @@ export default function DashboardPage() {
       <Card title="Recent Scans">
         <Table<ScanRow>
           columns={scanColumns}
-          data={scans as unknown as ScanRow[]}
+          data={recentScans as unknown as ScanRow[]}
           rowKey={(row) => row.id}
           emptyMessage="No scans found"
         />
       </Card>
-
-      {/* KB Spotlight */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
-          <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-neutral-900)' }}>
-            Recent Validated Learnings
-          </h2>
-          <Link to="/knowledge-base" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-primary-600)', textDecoration: 'none' }}>
-            View all →
-          </Link>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--space-4)' }}>
-          {kbCards.length === 0 ? (
-            <Card>
-              <div style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--color-neutral-500)' }}>
-                <BookOpen size={32} style={{ marginBottom: 'var(--space-2)', color: 'var(--color-neutral-300)' }} />
-                <p style={{ fontSize: 'var(--font-size-sm)' }}>No validated learnings yet. Enrich findings to build your knowledge base.</p>
-              </div>
-            </Card>
-          ) : (
-            kbCards.slice(0, 3).map((card) => (
-              <Card key={card.id}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                    <span style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-neutral-800)', fontSize: 'var(--font-size-sm)' }}>
-                      {card.title}
-                    </span>
-                    {card.approved && <Badge variant="success" size="sm">Approved</Badge>}
-                  </div>
-                  <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                    <Badge variant="info" size="sm">CWE-{card.cwe_id}</Badge>
-                    {card.tags.slice(0, 3).map((t) => (
-                      <Badge key={t} size="sm">{t}</Badge>
-                    ))}
-                  </div>
-                  {card.summary && (
-                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-neutral-600)', margin: 0, lineHeight: 'var(--line-height-relaxed)' }}>
-                      {card.summary.length > 120 ? `${card.summary.slice(0, 120)}…` : card.summary}
-                    </p>
-                  )}
-                  <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-neutral-400)', margin: 0 }}>
-                    Used {card.usage_count} time{card.usage_count !== 1 ? 's' : ''}
-                  </p>
-                </div>
-              </Card>
-            ))
-          )}
-        </div>
-      </div>
 
       <ToastContainer />
     </div>

@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 
-import { fetchScan, rerunScan } from '@/api/scans';
+import { fetchScan, rerunScan, cancelScan } from '@/api/scans';
 import { fetchFindings } from '@/api/findings';
 import type { Scan, ScanStatus } from '@/api/types';
 
@@ -53,6 +53,7 @@ export default function ScanDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [rerunning, setRerunning] = useState(false);
+    const [cancelling, setCancelling] = useState(false);
 
     useEffect(() => {
         if (!scanId) return;
@@ -93,6 +94,21 @@ export default function ScanDetailPage() {
             toast('error', err instanceof Error ? err.message : 'Failed to re-run scan');
         } finally {
             setRerunning(false);
+        }
+    }
+
+    /* ── Cancel handler ── */
+    async function handleCancel() {
+        if (!scan) return;
+        setCancelling(true);
+        try {
+            const updatedScan = await cancelScan(scan.id);
+            toast('success', 'Scan cancelled successfully');
+            setScan(updatedScan);
+        } catch (err) {
+            toast('error', err instanceof Error ? err.message : 'Failed to cancel scan');
+        } finally {
+            setCancelling(false);
         }
     }
 
@@ -148,6 +164,11 @@ export default function ScanDetailPage() {
                         {scan.status === 'completed' && findingCount !== null && (
                             <Button variant="primary" onClick={() => navigate(`/scans/${scan.id}/findings`)}>
                                 <Shield size={16} /> View {findingCount} Findings
+                            </Button>
+                        )}
+                        {(scan.status === 'queued' || scan.status === 'running') && (
+                            <Button variant="danger" loading={cancelling} onClick={handleCancel}>
+                                <XCircle size={16} /> Cancel Scan
                             </Button>
                         )}
                         <Button variant="secondary" loading={rerunning} onClick={handleRerun}>

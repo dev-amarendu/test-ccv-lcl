@@ -13,11 +13,15 @@ export interface TooltipProps {
 /* ── Component ── */
 export function Tooltip({ content, children, className }: TooltipProps) {
   const [visible, setVisible] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
   const tooltipId = useRef(`tooltip-${Math.random().toString(36).slice(2, 9)}`).current;
 
   const show = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current as any);
+    
+if (timeoutRef.current) {
+  clearTimeout(timeoutRef.current);
+  timeoutRef.current = null;
+}
     setVisible(true);
   };
 

@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Eye,
+  ChevronDown,
+  ChevronUp,
   AlertCircle,
   Activity,
   Play,
@@ -21,9 +22,11 @@ import type {
   ScanStatus,
   TriggerType,
 } from '@/api/types';
+import Pagination from '@/components/pagination';
 
 /* ── Status badge ── */
 function statusBadge(status: ScanStatus) {
+  const normalizedStatus = status?.toLowerCase() as ScanStatus;
   const map: Record<ScanStatus, { variant: 'success' | 'danger' | 'warning' | 'info' | 'default'; label: string }> = {
     completed: { variant: 'success', label: 'Completed' },
     running: { variant: 'info', label: 'Running' },
@@ -31,9 +34,10 @@ function statusBadge(status: ScanStatus) {
     failed: { variant: 'danger', label: 'Failed' },
     cancelled: { variant: 'warning', label: 'Cancelled' },
   };
-  const cfg = map[status] ?? { variant: 'default' as const, label: status };
+  const cfg = map[normalizedStatus] ?? { variant: 'default' as const, label: status };
   return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
 }
+
 
 /* ── Duration helper ── */
 function formatDuration(started?: string | null, finished?: string | null): string {
@@ -66,6 +70,10 @@ export default function ScansPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scans, setScans] = useState<Scan[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const loadScans = useCallback(async () => {
     setLoading(true);
@@ -73,6 +81,7 @@ export default function ScansPage() {
     try {
       const scansRes = await fetchScans();
       setScans(scansRes.items);
+      setPage(1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load scans');
     } finally {
@@ -84,9 +93,24 @@ export default function ScansPage() {
     loadScans();
   }, [loadScans]);
 
+
+
+const totalItems = scans.length;
+const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+
+ useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const pagedData = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return scans.slice(start, start + pageSize) as unknown as ScanRow[];
+  }, [scans, page, pageSize]);
+
   /* ── Progress for running scans ── */
   function getProgress(scan: Scan): number {
-    if (scan.status !== 'running' || !scan.started_at) return 0;
+    if (scan.status?.toLowerCase() !== 'running' || !scan.started_at) return 0;
     const elapsed = Date.now() - new Date(scan.started_at).getTime();
     const estimated = 15 * 60 * 1000; // 15 min
     return Math.min(95, Math.round((elapsed / estimated) * 100));
@@ -94,7 +118,7 @@ export default function ScansPage() {
 
   /* ── Repo name lookup ── */
   function repoName(id: string): string {
-    return id;
+    return  id;
   }
 
   /* ── Table columns ── */
@@ -104,7 +128,7 @@ export default function ScansPage() {
       accessor: 'status',
       width: '180px',
       render: (val, row) => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
           {statusBadge(val as ScanStatus)}
           {val === 'running' && <Progress value={getProgress(row as unknown as Scan)} height={4} animated />}
         </div>
@@ -139,11 +163,14 @@ export default function ScansPage() {
       accessor: 'id',
       width: '140px',
       render: (_val, row) => (
-        <Link to={`/findings?scan_id=${row.id}`} style={{ textDecoration: 'none' }}>
-          <Button size="sm" variant="secondary">
-            <Eye size={14} /> View Findings
-          </Button>
-        </Link>
+        <button
+          type="button"
+          onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-neutral-500)', padding: 'var(--space-1)' }}
+          aria-label="Expand"
+        >
+          {expandedId === row.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
       ),
     },
   ];
@@ -194,7 +221,7 @@ export default function ScansPage() {
         <h1 style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 'var(--font-weight-bold)', color: 'var(--color-neutral-900)' }}>
           Scans
         </h1>
-        <Button onClick={() => navigate('/scans/manual')}>
+        <Button onClick={() => navigate('/manual-scan')}>
           <Play size={16} /> New Scan
         </Button>
       </div>
@@ -205,16 +232,54 @@ export default function ScansPage() {
           <div style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
             <Activity size={40} style={{ color: 'var(--color-neutral-300)', marginBottom: 'var(--space-3)' }} />
             <p style={{ color: 'var(--color-neutral-500)', fontSize: 'var(--font-size-sm)' }}>
-              No scans found.
+              No scans match the current filters.
             </p>
           </div>
         </Card>
       ) : (
-        <Table<ScanRow>
-          columns={columns}
-          data={scans as unknown as ScanRow[]}
-          rowKey={(row) => row.id}
-        />
+        <>
+          <Table<ScanRow>
+            columns={columns}
+            data={pagedData as unknown as ScanRow[]}
+            rowKey={(row) => row.id}
+            expandedId={expandedId}
+            scans={scans}
+          />
+           <div style={{
+            marginTop: 'var(--space-4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 'var(--space-3)',
+            flexWrap: 'wrap'
+          }}>
+            {/* Left: per-page */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <span style={{ color: 'var(--color-neutral-600)', fontSize: 'var(--font-size-sm)' }}>Rows per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                style={{ padding: '6px 8px', borderRadius: 6 }}
+                aria-label="Rows per page"
+              >
+                {[10, 20, 50, 100].map(size => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+              <span style={{ color: 'var(--color-neutral-600)', fontSize: 'var(--font-size-sm)' }}>
+                {totalItems === 0 ? '0' : ((page - 1) * pageSize + 1)}–
+                {Math.min(page * pageSize, totalItems)} of {totalItems}
+              </span>
+            </div>
+
+            {/* Right: numbered pages + prev/next */}
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
+          </div>
+        </>
       )}
 
       <ToastContainer />

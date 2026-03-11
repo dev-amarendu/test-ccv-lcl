@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Eye,
@@ -19,8 +19,7 @@ import { SeverityBadge } from '@/components/severity_badge';
 
 import { fetchFindings } from '@/api/findings';
 import type { Finding, FindingFilters, Severity as SeverityType } from '@/api/types';
-
-
+import Pagination from '@/components/pagination';
 
 /* ── Row type ── */
 interface FindingRow extends Record<string, unknown> {
@@ -38,7 +37,7 @@ interface FindingRow extends Record<string, unknown> {
 
 export default function FindingsPage() {
   const navigate = useNavigate();
-  const { scanId: paramScanId } = useParams<{ scanId?: string }>();
+const { scanId: paramScanId } = useParams<{ scanId?: string }>();
   const [searchParams] = useSearchParams();
   const scanId = paramScanId || searchParams.get('scan_id') || undefined;
   const { toast, ToastContainer } = useToast();
@@ -48,12 +47,14 @@ export default function FindingsPage() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [total, setTotal] = useState(0);
 
+// Pagination state (client-side)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10)
+
   /* Filters */
   const [filterSeverity, setFilterSeverity] = useState('');
   const [filterFilePath, setFilterFilePath] = useState('');
   const [filterSearch, setFilterSearch] = useState('');
-  const [filterConfMin, setFilterConfMin] = useState('');
-  const [filterConfMax, setFilterConfMax] = useState('');
 
   const loadFindings = useCallback(async () => {
     setLoading(true);
@@ -64,6 +65,7 @@ export default function FindingsPage() {
       if (filterSeverity) filters.severity = filterSeverity as SeverityType;
 
       const findingsRes = await fetchFindings(filters);
+
       let items = findingsRes.items;
 
       /* Client-side filtering for fields not in API filter */
@@ -80,27 +82,36 @@ export default function FindingsPage() {
             f.fingerprint.toLowerCase().includes(q),
         );
       }
-      if (filterConfMin) {
-        const min = parseFloat(filterConfMin);
-        if (!isNaN(min)) items = items.filter((f: Finding) => (f.enrichment_confidence ?? 0) >= min);
-      }
-      if (filterConfMax) {
-        const max = parseFloat(filterConfMax);
-        if (!isNaN(max)) items = items.filter((f: Finding) => (f.enrichment_confidence ?? 1) <= max);
-      }
 
       setFindings(items);
       setTotal(findingsRes.total);
+      setPage(1)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load findings');
     } finally {
       setLoading(false);
     }
-  }, [scanId, filterSeverity, filterFilePath, filterSearch, filterConfMin, filterConfMax]);
+  }, [scanId, filterSeverity, filterFilePath, filterSearch]);
 
   useEffect(() => {
     loadFindings();
   }, [loadFindings]);
+  
+ // Derived totals for pagination (based on filtered items)
+  const totalItems = findings.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  // Clamp page if page > totalPages (e.g., when pageSize changes or filters shrink results)
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  // Current page of data
+  const pagedData = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return findings.slice(start, start + pageSize) as unknown as FindingRow[];
+  }, [findings, page, pageSize]);
+
 
   /* ── Copy link ── */
   function handleCopyLink(findingId: string) {
@@ -148,7 +159,7 @@ export default function FindingsPage() {
       ),
     },
     {
-      header: 'Enrichment',
+      header: 'Recommendation',
       accessor: 'enrichment_summary',
       width: '200px',
       render: (val) =>
@@ -158,20 +169,6 @@ export default function FindingsPage() {
           </span>
         ) : (
           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-neutral-400)' }}>—</span>
-        ),
-    },
-    {
-      header: 'Confidence',
-      accessor: 'enrichment_confidence',
-      width: '100px',
-      align: 'center',
-      render: (val) =>
-        val != null ? (
-          <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-semibold)' }}>
-            {Math.round((val as number) * 100)}%
-          </span>
-        ) : (
-          <span style={{ color: 'var(--color-neutral-400)' }}>—</span>
         ),
     },
     {
@@ -194,7 +191,7 @@ export default function FindingsPage() {
         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-neutral-600)' }}>
           {new Date(val as string).toLocaleDateString()}
         </span>
-      ),
+        ),
     },
     {
       header: 'Actions',
@@ -204,14 +201,14 @@ export default function FindingsPage() {
         const detailUrl = `/findings/${row.id}`;
 
         return (
-          <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
             <Button size="sm" variant="secondary" onClick={() => navigate(detailUrl)}>
-              <Eye size={14} /> View
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => handleCopyLink(row.id)}>
-              <Copy size={14} />
-            </Button>
-          </div>
+            <Eye size={14} /> View
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => handleCopyLink(row.id)}>
+            <Copy size={14} />
+          </Button>
+        </div>
         );
       },
     },
@@ -292,28 +289,6 @@ export default function FindingsPage() {
             onChange={(e) => setFilterSearch(e.target.value)}
             wrapperStyle={{ minWidth: 180 }}
           />
-          <Input
-            label="Conf. min"
-            type="number"
-            placeholder="0"
-            value={filterConfMin}
-            onChange={(e) => setFilterConfMin(e.target.value)}
-            wrapperStyle={{ minWidth: 80 }}
-            min={0}
-            max={1}
-            step={0.1}
-          />
-          <Input
-            label="Conf. max"
-            type="number"
-            placeholder="1"
-            value={filterConfMax}
-            onChange={(e) => setFilterConfMax(e.target.value)}
-            wrapperStyle={{ minWidth: 80 }}
-            min={0}
-            max={1}
-            step={0.1}
-          />
         </div>
       </Card>
 
@@ -327,12 +302,52 @@ export default function FindingsPage() {
             </p>
           </div>
         </Card>
-      ) : (
-        <Table<FindingRow>
-          columns={columns}
-          data={findings as unknown as FindingRow[]}
-          rowKey={(row) => row.id}
-        />
+      ) : ( 
+    <>
+      <Table<FindingRow>
+        columns={columns}
+        data={pagedData}
+        rowKey={(row) => row.id}
+     />
+    <div
+      style={{
+        marginTop: 'var(--space-4)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 'var(--space-3)',
+        flexWrap: 'wrap',
+      }}
+    >
+      {/* Left: per-page */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+        <span style={{ color: 'var(--color-neutral-600)', fontSize: 'var(--font-size-sm)' }}>
+          Rows per page:
+        </span>
+        <select
+          value={pageSize}
+          onChange={(e) => setPageSize(Number(e.target.value))}
+          style={{ padding: '6px 8px', borderRadius: 6 }}
+          aria-label="Rows per page"
+        >
+          {[10, 20, 50, 100].map(size => (
+            <option key={size} value={size}>{size}</option>
+          ))}
+        </select>
+        <span style={{ color: 'var(--color-neutral-600)', fontSize: 'var(--font-size-sm)' }}>
+          {totalItems === 0 ? '0' : ((page - 1) * pageSize + 1)}–
+          {Math.min(page * pageSize, totalItems)} of {totalItems}
+        </span>
+      </div>
+
+      {/* Right: numbered pages + prev/next */}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
+    </div>
+  </>
       )}
 
       <ToastContainer />
