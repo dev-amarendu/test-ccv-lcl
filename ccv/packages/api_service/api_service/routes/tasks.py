@@ -82,6 +82,9 @@ async def handle_run_scan(request: Request) -> dict:
         await run_scan_pipeline(scan_id)
     except ImportError:
         logger.warning("scan_runner_not_available")
+    except InterruptedError:
+        logger.warning("run_scan_cancelled", scan_id=scan_id)
+        return {"status": "cancelled", "scan_id": scan_id}
     except Exception as exc:
         logger.error("run_scan_error", scan_id=scan_id, error=str(exc))
         raise

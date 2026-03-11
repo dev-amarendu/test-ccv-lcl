@@ -24,6 +24,7 @@ class ScanStatusEnum(str, Enum):
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
 
 
 # ── Repo ──────────────────────────────────────────────────────────────────────
@@ -197,6 +198,13 @@ class KBFixCardResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     model_config = {"from_attributes": True}
+
+
+class KBFixCardListResponse(BaseModel):
+    items: list[KBFixCardResponse]
+    total: int
+    page: int
+    page_size: int
 
 
 class KBFixCardCreateRequest(BaseModel):

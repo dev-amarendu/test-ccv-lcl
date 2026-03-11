@@ -183,6 +183,52 @@ async def rerun_scan(
     )
 
 
+# ── POST /{scanId}/cancel — cancel a long-running scan ───────────────────────
+
+
+@router.post("/{scan_id}/cancel", response_model=ScanResponse, status_code=200)
+async def cancel_scan(
+    scan_id: str,
+    db: AsyncClient = Depends(db_session),
+) -> ScanResponse:
+    """Mark an active scan as CANCELLED to gracefully interrupt it."""
+    scan_store = ScanStore(db)
+    audit_store = AuditStore(db)
+
+    scan = await scan_store.get_scan(scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    if scan.status in (ScanStatus.COMPLETED, ScanStatus.FAILED, ScanStatus.CANCELLED):
+        raise HTTPException(status_code=400, detail=f"Cannot cancel scan in {scan.status.value} state")
+
+    await scan_store.update_scan(scan_id, {
+        "status": ScanStatus.CANCELLED,
+        "error_message": "Scan cancelled by operator via API",
+    })
+
+    await audit_store.log_entry(AuditLogDoc(
+        request_id=get_request_id(),
+        actor="api",
+        action="cancel_scan",
+        entity_type="scan",
+        entity_id=scan.id,
+        status="cancelled",
+    ))
+
+    logger.info("scan_cancelled", scan_id=scan.id)
+    
+    # Refresh to return updated object
+    scan = await scan_store.get_scan(scan_id)
+    return ScanResponse(
+        id=scan.id, repo_id=scan.repo_id, branch=scan.branch,
+        commit_sha=scan.commit_sha,
+        trigger_type=TriggerTypeEnum(scan.trigger_type.value),
+        status=ScanStatusEnum(scan.status.value),
+        created_at=scan.created_at, updated_at=scan.updated_at,
+    )
+
+
 # ── GET /{scanId}/findings — findings for a specific scan ────────────────────
 
 

@@ -123,11 +123,34 @@ async def run_scan_pipeline(scan_id: str) -> None:
     if not app_guid:
         raise RuntimeError("VERACODE_APP_GUID is not configured")
 
+    # ── Setup cancellation monitor ──
+    cancelled = False
+    async def cancel_monitor():
+        nonlocal cancelled
+        try:
+            while not cancelled:
+                await asyncio.sleep(5)
+                scan_check = await scan_store.get_scan(scan_id)
+                if scan_check and scan_check.status.value == "CANCELLED":
+                    logger.warning("pipeline_scan_cancelled_by_user", scan_id=scan_id)
+                    cancelled = True
+                    break
+        except asyncio.CancelledError:
+            pass
+
+    monitor_task = asyncio.create_task(cancel_monitor())
+    def cancel_checker() -> bool:
+        return cancelled
+
     repo_path = None
     try:
+        if cancel_checker(): raise InterruptedError("Scan cancelled")
+        
         # ── Step 1: Download repo from Bitbucket ─────────────────────────
         logger.info("pipeline_step_1_download", repo=repo_name, branch=scan.branch)
         repo_path = clone_repo(repo_name, scan.branch)
+
+        if cancel_checker(): raise InterruptedError("Scan cancelled")
 
         # ── Step 2: Maven build ──────────────────────────────────────────
         logger.info("pipeline_step_2_maven_build", path=str(repo_path))
@@ -141,6 +164,8 @@ async def run_scan_pipeline(scan_id: str) -> None:
         )
         await scan_store.add_artifact(scan_id, artifact)
 
+        if cancel_checker(): raise InterruptedError("Scan cancelled")
+
         # ── Step 3: Create Veracode build ────────────────────────────────
         version = f"scan_{scan_id[:8]}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
         logger.info("pipeline_step_3_create_build", version=version)
@@ -148,9 +173,13 @@ async def run_scan_pipeline(scan_id: str) -> None:
         build_id = veracode_api.create_new_build(app_id, version, sandbox_id, settings.veracode_analysis_base)
         await scan_store.update_scan(scan_id, {"external_build_id": build_id})
 
+        if cancel_checker(): raise InterruptedError("Scan cancelled")
+
         # ── Step 4: Upload JAR ───────────────────────────────────────────
         logger.info("pipeline_step_4_upload", build_id=build_id)
         veracode_api.upload_artifact(app_id, str(repo_path), sandbox_id, settings.veracode_analysis_base)
+
+        if cancel_checker(): raise InterruptedError("Scan cancelled")
 
         # ── Step 5: Start prescan ────────────────────────────────────────
         logger.info("pipeline_step_5_prescan")
@@ -158,11 +187,13 @@ async def run_scan_pipeline(scan_id: str) -> None:
 
         # ── Step 6: Poll prescan until complete ──────────────────────────
         logger.info("pipeline_step_6_poll_prescan")
-        veracode_api.poll_prescan_until_complete(
+        await asyncio.to_thread(
+            veracode_api.poll_prescan_until_complete,
             app_id, sandbox_id, build_id,
-            poll_interval=settings.scan_poll_interval_seconds,
-            timeout=1200,
-            api_base=settings.veracode_analysis_base
+            settings.scan_poll_interval_seconds,
+            1200,
+            settings.veracode_analysis_base,
+            cancel_checker
         )
         logger.info("pipeline_prescan_complete")
 
@@ -172,11 +203,13 @@ async def run_scan_pipeline(scan_id: str) -> None:
 
         # ── Step 8: Poll final scan until complete ───────────────────────
         logger.info("pipeline_step_8_poll_final_scan")
-        veracode_api.poll_final_scan_until_complete(
+        await asyncio.to_thread(
+            veracode_api.poll_final_scan_until_complete,
             app_id, sandbox_id, build_id,
-            poll_interval=settings.scan_poll_interval_seconds,
-            timeout=7200,
-            api_base=settings.veracode_analysis_base
+            settings.scan_poll_interval_seconds,
+            7200,
+            settings.veracode_analysis_base,
+            cancel_checker
         )
         logger.info("pipeline_final_scan_complete")
 
@@ -290,6 +323,7 @@ async def run_scan_pipeline(scan_id: str) -> None:
         )
 
     finally:
+        monitor_task.cancel()
         if repo_path:
             cleanup_repo(repo_path)
 

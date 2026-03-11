@@ -18,6 +18,7 @@ from shared.schemas import (
     FindingListResponse,
     FindingResponse,
     KBFixCardResponse,
+    KBFixCardListResponse,
 )
 
 from api_service.deps import db_session
@@ -29,7 +30,7 @@ logger = get_logger(__name__)
 # ── GET / — list findings with filters ───────────────────────────────────────
 
 
-@router.get("", response_model=FindingListResponse)
+@router.get("", response_model=FindingListResponse | KBFixCardListResponse)
 async def list_findings(
     scan_id: str | None = Query(None, description="Filter findings by a specific scan ID"),
     kind: str | None = Query(None, description="Set to 'kb' to list KB fix cards instead"),
@@ -37,7 +38,7 @@ async def list_findings(
     page: int = Query(1, ge=1),
     page_size: int = Query(500, ge=1, le=1000),
     db: AsyncClient = Depends(db_session),
-) -> FindingListResponse | dict:
+) -> FindingListResponse | KBFixCardListResponse:
     """List findings with rich filtering.
 
     When ``kind=kb`` the request is delegated to the KB fix-card listing.
@@ -46,8 +47,8 @@ async def list_findings(
     if kind == "kb":
         kb_store = KBFixCardStore(db)
         cards, total = await kb_store.list_cards(page=page, page_size=page_size)
-        return {
-            "items": [
+        return KBFixCardListResponse(
+            items=[
                 KBFixCardResponse(
                     id=c.id, cwe_id=c.cwe_id, title=c.title, tags=c.tags,
                     summary=c.summary, fix_steps_json=c.fix_steps_json,
@@ -55,13 +56,13 @@ async def list_findings(
                     original_finding_id=c.original_finding_id,
                     usage_count=c.usage_count,
                     created_at=c.created_at, updated_at=c.updated_at,
-                ).model_dump(mode="json")
+                )
                 for c in cards
             ],
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-        }
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
 
     # ── Standard finding listing ─────────────────────────────────────────
     finding_store = FindingStore(db)

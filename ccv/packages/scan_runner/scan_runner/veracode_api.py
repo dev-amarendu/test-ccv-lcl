@@ -139,12 +139,28 @@ def begin_final_scan(app_id: str, sandbox_id: str | None = None, api_base: str =
     logger.info("veracode_final_scan_started", app_id=app_id)
 
 
-def poll_final_scan_until_complete(app_id: str, sandbox_id: str | None = None, build_id: str | None = None, poll_interval: int = 20, timeout: int = 3600, api_base: str = "https://analysiscenter.veracode.com") -> dict:
+def poll_final_scan_until_complete(
+    app_id: str,
+    sandbox_id: str | None = None,
+    build_id: str | None = None,
+    poll_interval: int = 20,
+    timeout: int = 3600,
+    api_base: str = "https://analysiscenter.veracode.com",
+    cancel_check: Any = None,
+) -> dict:
     auth = _get_auth()
     url = f"{api_base}/api/5.0/getbuildinfo.do"
     data: dict[str, str] = {"app_id": str(app_id)}
     if sandbox_id: data["sandbox_id"] = str(sandbox_id)
     if build_id: data["build_id"] = str(build_id)
+
+    def _sleep_with_check(seconds: int) -> None:
+        for _ in range(seconds // 2):
+            if cancel_check and cancel_check():
+                raise InterruptedError("Scan cancelled by user")
+            time.sleep(2)
+        if seconds % 2 != 0:
+            time.sleep(1)
 
     start = time.time()
     attempt = 0
@@ -153,7 +169,7 @@ def poll_final_scan_until_complete(app_id: str, sandbox_id: str | None = None, b
         resp = requests.post(url, data=data, auth=auth, timeout=60)
         if resp.status_code in (429, 502, 503, 504):
             logger.warning("veracode_final_scan_poll_retry", code=resp.status_code, attempt=attempt)
-            time.sleep(min(5 * attempt, 30))
+            _sleep_with_check(min(5 * attempt, 30))
             continue
         resp.raise_for_status()
 
@@ -163,7 +179,7 @@ def poll_final_scan_until_complete(app_id: str, sandbox_id: str | None = None, b
             if time.time() - start > timeout:
                 raise RuntimeError("Final scan timed out — no build info found")
             logger.info("veracode_final_scan_poll_waiting", reason="no_build_info_yet", attempt=attempt)
-            time.sleep(poll_interval)
+            _sleep_with_check(poll_interval)
             continue
 
         if build_elem.attrib.get("results_ready", "").lower() == "true":
@@ -174,7 +190,7 @@ def poll_final_scan_until_complete(app_id: str, sandbox_id: str | None = None, b
             raise RuntimeError(f"Final scan timed out after {attempt} polls")
         
         logger.info("veracode_final_scan_poll_waiting", status=build_elem.attrib.get("analysis_unit_status", "in_progress"), attempt=attempt)
-        time.sleep(poll_interval)
+        _sleep_with_check(poll_interval)
 
 
 def get_detailed_report(build_id: str, api_base: str = "https://analysiscenter.veracode.com") -> dict:
