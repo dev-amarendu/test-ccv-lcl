@@ -322,6 +322,24 @@ async def run_scan_pipeline(scan_id: str) -> None:
             sca_findings=sca_count,
         )
 
+    except InterruptedError:
+        logger.warning("pipeline_interrupted_by_cancellation", scan_id=scan_id)
+        # We do NOT update Firestore here because the cancellation endpoint ALREADY
+        # set the status to "CANCELLED". We just exit cleanly.
+        raise
+
+    except Exception as e:
+        logger.error(
+            "pipeline_failed",
+            scan_id=scan_id,
+            error=str(e),
+            traceback=traceback.format_exc(),
+        )
+        await scan_store.update_scan(
+            scan_id, {"status": "failed", "error_message": str(e)}
+        )
+        raise
+
     finally:
         monitor_task.cancel()
         if repo_path:
@@ -347,6 +365,9 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\nPipeline stopped by user")
         sys.exit(130)
+    except InterruptedError:
+        print("\n\033[93mPipeline was manually cancelled.\033[0m")
+        # Do not overwrite the Firestore status; it should already be CANCELLED
     except Exception as e:
         print(f"\n\033[91mPipeline failed:\033[0m {e}")
         sys.exit(1)
