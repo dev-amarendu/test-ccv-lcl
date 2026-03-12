@@ -6,7 +6,6 @@ import {
   Calendar,
   AlertTriangle,
   Clock,
-  Key,
 } from 'lucide-react';
 
 import { Card } from '@/components/ui/card';
@@ -360,20 +359,7 @@ export default function SchedulesPage() {
         </form>
       </Card>
 
-      {/* Scheduler token callout */}
-      <Card padding="sm" style={{ borderLeft: '4px solid var(--color-primary-400)' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
-          <Key size={18} style={{ color: 'var(--color-primary-600)', flexShrink: 0, marginTop: 2 }} />
-          <div>
-            <p style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-neutral-800)', margin: 0 }}>
-              Scheduler Token
-            </p>
-            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-neutral-600)', margin: 0, marginTop: 'var(--space-1)', lineHeight: 'var(--line-height-relaxed)' }}>
-              Scheduled scans require a valid scheduler token configured in your environment. Ensure <code>CCV_SCHEDULER_TOKEN</code> is set in your deployment secrets. Contact your platform administrator if scans aren't triggering.
-            </p>
-          </div>
-        </div>
-      </Card>
+
 
       {/* Schedules list */}
       <div>

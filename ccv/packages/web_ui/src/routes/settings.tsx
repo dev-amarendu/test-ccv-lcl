@@ -88,7 +88,6 @@ export default function SettingsPage() {
           </p>
           <ul style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-neutral-600)', margin: 0, paddingLeft: 'var(--space-4)', lineHeight: 'var(--line-height-relaxed)' }}>
             <li><code>CCV_SCM_TOKEN</code> — Source control access token</li>
-            <li><code>CCV_SCHEDULER_TOKEN</code> — Scheduler authentication token</li>
             <li><code>CCV_OPENAI_API_KEY</code> — AI enrichment API key</li>
             <li><code>CCV_DB_URL</code> — Database connection string</li>
           </ul>
