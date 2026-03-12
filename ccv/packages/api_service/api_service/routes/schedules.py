@@ -11,7 +11,6 @@ from shared.firestore_models import AuditLogDoc, ScanDoc, ScheduleDoc, ScanStatu
 from shared.logging import get_logger, get_request_id
 from shared.pubsub_client import publish_run_scan
 from shared.repositories.audit_store import AuditStore
-from shared.repositories.repos import RepoStore
 from shared.repositories.scan_store import ScanStore
 from shared.repositories.schedule_store import ScheduleStore
 from shared.schemas import (
@@ -57,13 +56,8 @@ async def create_schedule(
     db: AsyncClient = Depends(db_session),
 ) -> ScheduleResponse:
     """Create a new scan schedule for a repo + branch."""
-    repo_store = RepoStore(db)
     schedule_store = ScheduleStore(db)
     audit_store = AuditStore(db)
-
-    repo = await repo_store.get_repo(str(body.repo_id))
-    if not repo:
-        raise HTTPException(status_code=404, detail="Repo not found")
 
     schedule = ScheduleDoc(
         id=str(generate_uuid()),

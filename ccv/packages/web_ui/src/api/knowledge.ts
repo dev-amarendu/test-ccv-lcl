@@ -18,7 +18,7 @@ export async function fetchKBCards(): Promise<KBFixCard[]> {
     });
     return res.items;
   } catch (err) {
-    if (err instanceof MockModeActive) return mockKB as KBFixCard[];
+    if (err instanceof MockModeActive) return mockKB as unknown as KBFixCard[];
     throw err;
   }
 }
@@ -33,7 +33,7 @@ export async function fetchKBCard(id: string): Promise<KBFixCard> {
     );
   } catch (err) {
     if (err instanceof MockModeActive) {
-      const card = (mockKB as KBFixCard[]).find((c) => c.id === id);
+      const card = (mockKB as unknown as KBFixCard[]).find((c) => c.id === id);
       if (!card) throw new Error(`Mock KB card not found: ${id}`);
       return card;
     }
@@ -67,6 +67,7 @@ export async function createKBCard(
         approved: false,
         original_finding_id: null,
         usage_count: 0,
+        content_hash: `mock-${req.cwe_id}`,
         created_at: now,
         updated_at: now,
       };
@@ -89,7 +90,7 @@ export async function updateKBCard(
     );
   } catch (err) {
     if (err instanceof MockModeActive) {
-      const existing = (mockKB as KBFixCard[]).find((c) => c.id === id);
+      const existing = (mockKB as unknown as KBFixCard[]).find((c) => c.id === id);
       if (!existing) throw new Error(`Mock KB card not found: ${id}`);
       const now = new Date().toISOString();
       return { ...existing, ...req, updated_at: now } as KBFixCard;
