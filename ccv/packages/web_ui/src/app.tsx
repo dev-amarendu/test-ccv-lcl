@@ -7,7 +7,7 @@ import {
   AlertTriangle,
   BookOpen,
   Clock,
-  FlaskConical,
+//   FlaskConical,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -21,7 +21,7 @@ import FindingsPage from './routes/findings';
 import FindingDetailPage from './routes/finding_detail';
 import KnowledgeBasePage from './routes/knowledge_base';
 import SchedulesPage from './routes/schedules';
-import MockModePage from './routes/mock_mode';
+// import MockModePage from './routes/mock_mode';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -30,7 +30,7 @@ const navItems = [
   { to: '/allfindings', label: 'All Findings', icon: AlertTriangle },
   { to: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen },
   { to: '/schedules', label: 'Schedules', icon: Clock },
-  { to: '/mock-mode', label: 'Mock Mode', icon: FlaskConical },
+// { to: '/mock-mode', label: 'Mock Mode', icon: FlaskConical },
 ] as const;
 
 export function App() {
@@ -49,7 +49,7 @@ export function App() {
             <img src="https://www.cox.com/content/dam/cox/common/icons/ui_components/hamburger-menu.svg" alt="hamburger" />
           </button>
           <Link to="/" className="app-header__brand">
-             <img src="https://www.cox.com/content/dam/cox/common/icons/ui_components/cox_logo.png" alt="logo" />
+            <img src="https://www.cox.com/content/dam/cox/common/icons/ui_components/cox_logo.png" alt="logo" />
             <span className="app-header__title">Code Vulnerability Report</span>
           </Link>
         </div>
@@ -102,7 +102,7 @@ export function App() {
             <Route path="/findings/:findingId" element={<FindingDetailPage />} />
             <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
             <Route path="/schedules" element={<SchedulesPage />} />
-            <Route path="/mock-mode" element={<MockModePage />} />
+{/* <Route path="/mock-mode" element={<MockModePage />} /> */}
           </Routes>
         </main>
       </div>
