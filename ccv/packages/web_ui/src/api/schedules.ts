@@ -38,7 +38,9 @@ export async function createSchedule(
         repo_id: req.repo_id,
         branch: req.branch,
         // artifact_uri removed from frontend model — keep metadata minimal
-        interval_minutes: req.interval_minutes,
+        interval_minutes: req.interval_minutes ?? null,
+        cron_expression: req.cron_expression ?? null,
+        run_once: req.run_once ?? false,
         enabled: req.enabled ?? true,
         next_run_at: null,
         created_at: now,
@@ -63,10 +65,10 @@ export async function updateSchedule(
     );
   } catch (err) {
     if (err instanceof MockModeActive) {
-      const existing = (mockSchedules as Schedule[]).find((s) => s.id === id);
+      const existing = (mockSchedules as unknown as Schedule[]).find((s) => s.id === id);
       if (!existing) throw new Error(`Mock schedule not found: ${id}`);
       const now = new Date().toISOString();
-      return { ...existing, ...req, updated_at: now };
+      return { ...existing, ...req, updated_at: now } as Schedule;
     }
     throw err;
   }

@@ -89,7 +89,9 @@ export interface Schedule {
   id: string;
   repo_id: string;
   branch: string;
-  interval_minutes: number;
+  interval_minutes: number | null;
+  cron_expression: string | null;
+  run_once: boolean;
   enabled: boolean;
   next_run_at?: string | null;
   created_at: string;
@@ -108,6 +110,7 @@ export interface KBFixCard {
   approved: boolean;
   original_finding_id?: string | null;
   usage_count: number;
+  content_hash: string;
   created_at: string;
   updated_at: string;
 }
@@ -150,13 +153,17 @@ export interface ManualScanRequest {
 export interface CreateScheduleRequest {
   repo_id: string;
   branch: string;
-  interval_minutes: number;
+  interval_minutes?: number;
+  cron_expression?: string;
+  run_once?: boolean;
   enabled?: boolean;
 }
 
 export interface UpdateScheduleRequest {
   branch?: string;
   interval_minutes?: number;
+  cron_expression?: string;
+  run_once?: boolean;
   enabled?: boolean;
 }
 

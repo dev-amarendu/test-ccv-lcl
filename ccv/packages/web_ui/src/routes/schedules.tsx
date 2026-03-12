@@ -19,6 +19,7 @@ import { useToast } from '@/components/ui/toast';
 import { Table, type Column } from '@/components/ui/table';
 
 import { fetchBranches } from '@/api/branches';
+import { fetchRepos } from '@/api/repos';
 import {
   fetchSchedules,
   createSchedule,
@@ -26,14 +27,16 @@ import {
   deleteSchedule,
   runScheduleNow,
 } from '@/api/schedules';
-import type { Branch, Schedule } from '@/api/types';
+import type { Branch, Schedule, Repo } from '@/api/types';
 
 /* ── Row type ── */
 interface ScheduleRow extends Record<string, unknown> {
   id: string;
   repo_id: string;
   branch: string;
-  interval_minutes: number;
+  interval_minutes: number | null;
+  cron_expression: string | null;
+  run_once: boolean;
   enabled: boolean;
   next_run_at: string | null;
   created_at: string;
@@ -45,12 +48,16 @@ export default function SchedulesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [repos, setRepos] = useState<Repo[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
 
   /* Form state */
-  const [formRepoSlug, setFormRepoSlug] = useState('');
+  const [formRepoId, setFormRepoId] = useState('');
   const [formBranch, setFormBranch] = useState('');
+  const [scheduleType, setScheduleType] = useState<'interval' | 'cron'>('interval');
   const [formInterval, setFormInterval] = useState('60');
+  const [formCron, setFormCron] = useState('0 0 * * *');
+  const [formRunOnce, setFormRunOnce] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   /* Action state */
@@ -61,12 +68,16 @@ export default function SchedulesPage() {
     let cancelled = false;
     async function load() {
       try {
-        const schedulesRes = await fetchSchedules();
+        const [schedulesRes, reposRes] = await Promise.all([
+          fetchSchedules(),
+          fetchRepos(),
+        ]);
         if (!cancelled) {
           setSchedules(schedulesRes);
+          setRepos(reposRes);
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load schedules');
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load data');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -77,7 +88,7 @@ export default function SchedulesPage() {
 
   /* Load branches when repo changes */
   useEffect(() => {
-    if (!formRepoSlug) {
+    if (!formRepoId) {
       setBranches([]);
       setFormBranch('');
       return;
@@ -85,7 +96,7 @@ export default function SchedulesPage() {
     let cancelled = false;
     async function load() {
       try {
-        const data = await fetchBranches(formRepoSlug);
+        const data = await fetchBranches(formRepoId);
         if (!cancelled) {
           setBranches(data);
           const def = data.find((b) => b.is_default);
@@ -97,27 +108,30 @@ export default function SchedulesPage() {
     }
     load();
     return () => { cancelled = true; };
-  }, [formRepoSlug]);
+  }, [formRepoId]);
 
   /* Create schedule */
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
-    if (!formRepoSlug || !formBranch) {
+    if (!formRepoId || !formBranch) {
       toast('warning', 'Repository and branch are required');
       return;
     }
     setSubmitting(true);
     try {
       const s = await createSchedule({
-        repo_id: formRepoSlug,
+        repo_id: formRepoId,
         branch: formBranch,
-        interval_minutes: parseInt(formInterval, 10) || 60,
+        interval_minutes: scheduleType === 'interval' ? (parseInt(formInterval, 10) || 60) : undefined,
+        cron_expression: scheduleType === 'cron' ? formCron : undefined,
+        run_once: formRunOnce,
         enabled: true,
       });
       setSchedules((prev) => [s, ...prev]);
-      setFormRepoSlug('');
+      setFormRepoId('');
       setFormBranch('');
       setFormInterval('60');
+      setFormRunOnce(false);
       toast('success', 'Schedule created');
     } catch (err) {
       toast('error', err instanceof Error ? err.message : 'Failed to create schedule');
@@ -164,9 +178,10 @@ export default function SchedulesPage() {
     }
   }
 
-  /* Repo name — disabled as module is removed */
+  /* Repo name resolver */
   function repoName(id: string): string {
-    return id;
+    const r = repos.find((repo) => repo.id === id);
+    return r ? r.name : id;
   }
 
   const intervalMinutes = parseInt(formInterval, 10);
@@ -180,10 +195,21 @@ export default function SchedulesPage() {
     },
     { header: 'Branch', accessor: 'branch' },
     {
-      header: 'Interval',
-      accessor: 'interval_minutes',
+      header: 'Frequency',
+      accessor: 'id',
+      render: (_val, row) => {
+        const s = schedules.find(x => x.id === row.id);
+        if (s?.cron_expression) {
+          return <code style={{ fontSize: 'var(--font-size-xs)', background: 'var(--color-neutral-100)', padding: '2px 4px', borderRadius: 4 }}>{s.cron_expression}</code>;
+        }
+        return `${s?.interval_minutes} min`;
+      }
+    },
+    {
+      header: 'Type',
+      accessor: 'run_once',
       width: '100px',
-      render: (val) => `${val as number} min`,
+      render: (val) => (val ? <span style={{ color: 'var(--color-primary-600)', fontSize: 'var(--font-size-xs)', fontWeight: 'bold' }}>ONE-TIME</span> : <span style={{ color: 'var(--color-neutral-500)', fontSize: 'var(--font-size-xs)' }}>RECURRING</span>),
     },
     {
       header: 'Next Run',
@@ -257,27 +283,53 @@ export default function SchedulesPage() {
       <Card title="Create Schedule">
         <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
-            <Input
-              label="Repository Slug *"
-              placeholder="e.g. my-app"
-              value={formRepoSlug}
-              onChange={(e) => setFormRepoSlug(e.target.value)}
+            <Select
+              label="Repository *"
+              placeholder="Select a repository"
+              options={repos.map((r) => ({ value: r.id, label: r.name }))}
+              value={formRepoId}
+              onChange={(e) => setFormRepoId(e.target.value)}
             />
             <Select
               label="Branch *"
-              placeholder={formRepoSlug ? 'Select branch' : 'Enter repo slug first'}
+              placeholder={formRepoId ? 'Select branch' : 'Select a repository first'}
               options={branches.map((b) => ({ value: b.name, label: b.name }))}
               value={formBranch}
               onChange={(e) => setFormBranch(e.target.value)}
-              disabled={!formRepoSlug}
+              disabled={!formRepoId}
             />
-            <Input
-              label="Interval (minutes)"
-              type="number"
-              value={formInterval}
-              onChange={(e) => setFormInterval(e.target.value)}
-              min={1}
+            <Select
+              label="Schedule Type"
+              options={[
+                { value: 'interval', label: 'Fixed Interval' },
+                { value: 'cron', label: 'CRON Expression' },
+              ]}
+              value={scheduleType}
+              onChange={(e) => setScheduleType(e.target.value as 'interval' | 'cron')}
             />
+            {scheduleType === 'interval' ? (
+              <Input
+                label="Interval (minutes)"
+                type="number"
+                value={formInterval}
+                onChange={(e) => setFormInterval(e.target.value)}
+                min={1}
+              />
+            ) : (
+              <Input
+                label="CRON Expression"
+                placeholder="e.g. 0 0 25 * * (25th of month)"
+                value={formCron}
+                onChange={(e) => setFormCron(e.target.value)}
+              />
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <Switch checked={formRunOnce} onChange={setFormRunOnce} />
+            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-neutral-700)' }}>
+              <strong>Run Once:</strong> If enabled, the schedule will trigger once and then disable itself.
+            </span>
           </div>
 
           {/* Warning for short intervals */}

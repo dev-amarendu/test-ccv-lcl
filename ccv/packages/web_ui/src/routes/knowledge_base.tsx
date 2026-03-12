@@ -35,7 +35,15 @@ export default function KnowledgeBasePage() {
     async function load() {
       try {
         const data = await fetchKBCards();
-        if (!cancelled) setCards(data);
+        if (!cancelled) {
+          // Robust deduplication using a composite key of CWE and Content Hash
+          const unique = new Map<string, KBFixCard>();
+          (data || []).forEach(c => {
+            const key = `${c.cwe_id}-${c.content_hash || c.title}`;
+            unique.set(key, c);
+          });
+          setCards(Array.from(unique.values()));
+        }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load KB');
       } finally {

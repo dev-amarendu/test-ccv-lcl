@@ -23,7 +23,7 @@ async def get_fix_card(cwe_id: int) -> KBFixCardDoc | None:
     """Retrieve a Fix Card by CWE ID."""
     db = get_firestore_client()
     store = KBFixCardStore(db)
-    return await store.get_by_cwe_id(cwe_id)
+    return await store.get_by_cwe(cwe_id)
 
 
 async def get_fix_card_by_id(card_id: str) -> KBFixCardDoc | None:
@@ -57,7 +57,7 @@ async def upsert_fix_card(
     store = KBFixCardStore(db)
 
     # Check if exists by CWE
-    existing = await store.get_by_cwe_id(cwe_id)
+    existing = await store.get_by_cwe(cwe_id)
 
     new_hash = content_hash(content)
     

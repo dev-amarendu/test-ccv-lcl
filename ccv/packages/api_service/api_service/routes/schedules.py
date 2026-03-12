@@ -35,6 +35,7 @@ def _schedule_response(s: ScheduleDoc) -> ScheduleResponse:
         id=s.id, repo_id=s.repo_id, branch=s.branch,
         interval_minutes=s.interval_minutes,
         cron_expression=s.cron_expression,
+        run_once=s.run_once,
         enabled=s.enabled, next_run_at=s.next_run_at,
         created_at=s.created_at, updated_at=s.updated_at,
     )
@@ -71,6 +72,7 @@ async def create_schedule(
         # artifact_uri intentionally ignored server-side (frontend no longer supplies artifact URIs)
         interval_minutes=body.interval_minutes,
         cron_expression=body.cron_expression,
+        run_once=body.run_once,
         enabled=True,
     )
     
@@ -240,27 +242,30 @@ async def trigger_due_schedules(
         # 2. Publish Event
         publish_run_scan(scan.id)
         
-        # 3. Calculate next run
-        from datetime import timedelta
-        
-        if schedule.cron_expression:
-            from croniter import croniter
-            try:
-                # Use current time as base for next run
-                iter = croniter(schedule.cron_expression, now)
-                next_run = iter.get_next(datetime)
-            except Exception as e:
-                logger.error("schedule_cron_error", schedule_id=schedule.id, error=str(e))
-                # Disable broken schedule to prevent loops
-                await schedule_store.update_schedule(schedule.id, {"enabled": False})
-                continue
+        # 3. Handle run_once or calculate next run
+        if schedule.run_once:
+            # Disable one-time schedules immediately
+            await schedule_store.update_schedule(schedule.id, {"enabled": False, "next_run_at": None})
         else:
-            # Fallback to interval
-            interval = schedule.interval_minutes or 60
-            next_run = now + timedelta(minutes=interval)
-        
-        # 4. Update Schedule
-        await schedule_store.update_schedule(schedule.id, {"next_run_at": next_run})
+            if schedule.cron_expression:
+                from croniter import croniter
+                try:
+                    # Use current time as base for next run
+                    iter = croniter(schedule.cron_expression, now)
+                    next_run = iter.get_next(datetime)
+                except Exception as e:
+                    logger.error("schedule_cron_error", schedule_id=schedule.id, error=str(e))
+                    # Disable broken schedule to prevent loops
+                    await schedule_store.update_schedule(schedule.id, {"enabled": False})
+                    continue
+            else:
+                # Fallback to interval
+                from datetime import timedelta
+                interval = schedule.interval_minutes or 60
+                next_run = now + timedelta(minutes=interval)
+            
+            # 4. Update Schedule
+            await schedule_store.update_schedule(schedule.id, {"next_run_at": next_run})
         
         # 5. Audit
         await audit_store.log_entry(AuditLogDoc(

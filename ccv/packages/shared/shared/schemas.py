@@ -156,6 +156,7 @@ class ScheduleCreateRequest(BaseModel):
     artifact_uri: str | None = None
     interval_minutes: int | None = 60
     cron_expression: str | None = None  # e.g. "0 9 * * 1" for 9am Monday
+    run_once: bool = False
 
 
 class ScheduleUpdateRequest(BaseModel):
@@ -163,6 +164,7 @@ class ScheduleUpdateRequest(BaseModel):
     artifact_uri: str | None = None
     interval_minutes: int | None = None
     cron_expression: str | None = None
+    run_once: bool | None = None
     enabled: bool | None = None
 
 
@@ -173,6 +175,7 @@ class ScheduleResponse(BaseModel):
     artifact_uri: str | None = None
     interval_minutes: int | None = None
     cron_expression: str | None = None
+    run_once: bool
     enabled: bool
     next_run_at: datetime | None = None
     created_at: datetime

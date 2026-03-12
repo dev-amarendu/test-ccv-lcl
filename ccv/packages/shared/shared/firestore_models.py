@@ -180,6 +180,7 @@ class ScheduleDoc(BaseModel):
     artifact_uri: str | None = None
     interval_minutes: int | None = 60
     cron_expression: str | None = None
+    run_once: bool = False
     enabled: bool = True
     next_run_at: datetime | None = None
     created_at: datetime = Field(default_factory=_now)

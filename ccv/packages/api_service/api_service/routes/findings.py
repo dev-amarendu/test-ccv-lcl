@@ -47,6 +47,13 @@ async def list_findings(
     if kind == "kb":
         kb_store = KBFixCardStore(db)
         cards, total = await kb_store.list_cards(page=page, page_size=page_size)
+        
+        # Deduplicate by CWE ID
+        unique_cards = {}
+        for c in cards:
+            if c.cwe_id not in unique_cards:
+                unique_cards[c.cwe_id] = c
+        
         return KBFixCardListResponse(
             items=[
                 KBFixCardResponse(
@@ -57,9 +64,9 @@ async def list_findings(
                     usage_count=c.usage_count,
                     created_at=c.created_at, updated_at=c.updated_at,
                 )
-                for c in cards
+                for c in unique_cards.values()
             ],
-            total=total,
+            total=len(unique_cards),
             page=page,
             page_size=page_size,
         )
