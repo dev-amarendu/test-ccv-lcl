@@ -16,97 +16,11 @@ import vertexai
 from vertexai.language_models import TextEmbeddingModel
 from google.api_core.exceptions import GoogleAPIError
 
-# ---------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(level=LOG_LEVEL)
-logger = logging.getLogger("embedding-pipeline")
-
-# ---------------------------------------------------------------------
+# Your shared configuration
+from shared.config import get_settings
+# ============================================================
 # Settings
-# ---------------------------------------------------------------------
-def _to_bool_env(name: str, default: bool = False) -> bool:
-    v = os.environ.get(name)
-    if v is None:
-        return default
-    return str(v).strip().lower() in {"1", "true", "t", "yes", "y"}
-
-@dataclass
-class Settings:
-    firestore_project_id: str
-    google_cloud_location: str
-    service_account_key_path: str
-
-    embedding_model: str = "text-embedding-005"
-    gcs_bucket_name: str = ""
-    max_embedding_input_tokens: int = 20000
-    embedding_batch_size: int = 250
-    chunk_text_if_longer_than_tokens: int = 1000
-    chunk_size_tokens: int = 15000
-    chunk_overlap_tokens: int = 100
-
-    vector_search_index_display_name: str = "my-text-vector-search-index"
-    vector_search_index_description: str = "Vector Search index for text embeddings"
-    index_overwrite_default: bool = False
-    approximate_neighbors_count: int = 500  # default ANN neighbors
-    vector_search_network: str = "" # e.g., "projects/PROJECT_ID/global/networks/NETWORK_NAME"
-    vector_search_grpc_address: str = ""
-
-def get_settings() -> Settings:
-    project_id = os.environ.get("FIRESTORE_PROJECT_ID", "your-gcp-project-id")
-    location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-east1")
-    sa_key = os.environ.get("SERVICE_ACCOUNT_KEY_PATH", "service_account.json")
-
-    # If not provided, default bucket naming convention
-    gcs_bucket = os.environ.get(
-        "GCS_BUCKET_NAME",
-        f"{project_id}-vector-search-embeddings"
-    )
-
-    # Chunking controls (with sane caps)
-    max_tokens = 20000
-    chunk_if_longer = int(os.environ.get("CHUNK_TEXT_IF_LONGER_THAN_TOKENS", "1000"))
-    chunk_size = int(os.environ.get("CHUNK_SIZE_TOKENS", "15000"))
-    chunk_overlap = int(os.environ.get("CHUNK_OVERLAP_TOKENS", "100"))
-
-    if chunk_size > max_tokens:
-        logger.warning("CHUNK_SIZE_TOKENS (%s) > MAX_EMBEDDING_INPUT_TOKENS (%s). Capping to %s.",
-                       chunk_size, max_tokens, max_tokens)
-        chunk_size = max_tokens
-    if chunk_overlap >= chunk_size:
-        logger.warning("CHUNK_OVERLAP_TOKENS (%s) >= CHUNK_SIZE_TOKENS (%s). Reducing overlap.",
-                       chunk_overlap, chunk_size)
-        chunk_overlap = max(0, chunk_size // 10)
-
-    overwrite_default = _to_bool_env("INDEX_OVERWRITE", False)
-    ann_neighbors = int(os.environ.get("APPROX_NEIGHBORS_COUNT", "500"))
-
-    return Settings(
-        firestore_project_id=project_id,
-        google_cloud_location=location,
-        service_account_key_path=sa_key,
-        embedding_model=os.environ.get("EMBEDDING_MODEL", "text-embedding-005"),
-        gcs_bucket_name=gcs_bucket,
-        max_embedding_input_tokens=max_tokens,
-        embedding_batch_size=250,
-        chunk_text_if_longer_than_tokens=chunk_if_longer,
-        chunk_size_tokens=chunk_size,
-        chunk_overlap_tokens=chunk_overlap,
-        vector_search_index_display_name=os.environ.get(
-            "VECTOR_SEARCH_INDEX_DISPLAY_NAME",
-            "my-text-vector-search-index"
-        ),
-        vector_search_index_description=os.environ.get(
-            "VECTOR_SEARCH_INDEX_DESCRIPTION",
-            "Vector Search index for text embeddings"
-        ),
-        index_overwrite_default=overwrite_default,
-        approximate_neighbors_count=ann_neighbors,
-        vector_search_network=os.environ.get("VECTOR_SEARCH_NETWORK", ""),
-        vector_search_grpc_address=os.environ.get("VECTOR_SEARCH_GRPC_ADDRESS", ""),
-    )
-
+# ============================================================
 _settings = get_settings()
 
 # ---------------------------------------------------------------------
@@ -126,14 +40,14 @@ def _initialize_gcp_clients_with_sa():
     if _aiplatform_initialized:
         return
 
-    if not os.path.exists(_settings.service_account_key_path):
+    if not os.path.exists(_settings.google_application_credentials):
         raise FileNotFoundError(
-            f"Service account key file missing: '{_settings.service_account_key_path}'. "
-            f"Set SERVICE_ACCOUNT_KEY_PATH or place the key file accordingly."
+            f"Service account key file missing: '{_settings.google_application_credentials}'. "
+            f"Set GOOGLE_APPLICATION_CREDENTIALS or place the key file accordingly."
         )
 
     credentials_obj = service_account.Credentials.from_service_account_file(
-        _settings.service_account_key_path
+        _settings.google_application_credentials
     )
 
     # Vertex AI Admin (aiplatform) + Vertex SDK (vertexai)

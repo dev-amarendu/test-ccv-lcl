@@ -6,6 +6,7 @@ import asyncio
 from typing import Any
 
 from google.cloud import aiplatform
+from google.oauth2 import service_account
 
 from shared.config import get_settings
 from shared.firestore_client import get_firestore_client
@@ -137,9 +138,17 @@ async def vector_search(query_text: str, top_k: int = 5) -> list[dict[str, Any]]
 
     try:
         # Initialize Vertex AI SDK
+        # Initialize Vertex AI SDK with Service Account if available
+        creds = None
+        if settings.google_application_credentials:
+            creds = service_account.Credentials.from_service_account_file(
+                settings.google_application_credentials
+            )
+
         aiplatform.init(
             project=settings.firestore_project_id,
             location=settings.google_cloud_location,
+            credentials=creds,
         )
 
         my_index_endpoint = aiplatform.MatchingEngineIndexEndpoint(

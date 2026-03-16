@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     vector_search_index_id: str = ""
     vector_search_deployed_index_id: str = ""
     vector_search_grpc_address: str = ""
+    vector_search_network: str = ""
+    vector_search_staging_bucket: str = ""
 
     # ── API ───────────────────────────────────
     api_host: str = "0.0.0.0"
