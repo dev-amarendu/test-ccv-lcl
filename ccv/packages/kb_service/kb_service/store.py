@@ -23,7 +23,7 @@ async def get_fix_card(cwe_id: int) -> KBFixCardDoc | None:
     """Retrieve a Fix Card by CWE ID."""
     db = get_firestore_client()
     store = KBFixCardStore(db)
-    return await store.get_by_cwe(cwe_id)
+    return await store.get_by_cwe_id(cwe_id)
 
 
 async def get_fix_card_by_id(card_id: str) -> KBFixCardDoc | None:
@@ -57,7 +57,7 @@ async def upsert_fix_card(
     store = KBFixCardStore(db)
 
     # Check if exists by CWE
-    existing = await store.get_by_cwe(cwe_id)
+    existing = await store.get_by_cwe_id(cwe_id)
 
     new_hash = content_hash(content)
     
@@ -131,7 +131,7 @@ async def vector_search(query_text: str, top_k: int = 5) -> list[dict[str, Any]]
         return []
 
     # 2. Query Vertex AI Vector Search
-    if not settings.vector_search_index_endpoint_id or not settings.vector_search_index_id:
+    if not settings.vector_search_index_endpoint or not settings.vector_search_index_id:
         logger.warning("vector_search_not_configured")
         return []
 
@@ -143,8 +143,12 @@ async def vector_search(query_text: str, top_k: int = 5) -> list[dict[str, Any]]
         )
 
         my_index_endpoint = aiplatform.MatchingEngineIndexEndpoint(
-            index_endpoint_name=settings.vector_search_index_endpoint_id
+            index_endpoint_name=settings.vector_search_index_endpoint
         )
+        
+        # Override address for private endpoint tunneling or explicit domain
+        if settings.vector_search_grpc_address:
+            my_index_endpoint.public_endpoint_domain_name = settings.vector_search_grpc_address
 
         # Query the index
         # Note: public_endpoint_domain might be needed if using public endpoint

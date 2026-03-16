@@ -202,8 +202,10 @@ async def cancel_scan(
     if scan.status in (ScanStatus.COMPLETED, ScanStatus.FAILED, ScanStatus.CANCELLED):
         raise HTTPException(status_code=400, detail=f"Cannot cancel scan in {scan.status.value} state")
 
+    from datetime import datetime, timezone
     await scan_store.update_scan(scan_id, {
         "status": ScanStatus.CANCELLED,
+        "finished_at": datetime.now(timezone.utc),
         "error_message": "Scan cancelled by operator via API",
     })
 

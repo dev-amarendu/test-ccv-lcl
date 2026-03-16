@@ -32,21 +32,21 @@ async def execute_scan(scan_id: str) -> None:
     set_request_id(rid)
     logger.info("scan_runner_start", scan_id=scan_id)
 
-    db = get_firestore_client()
-    scan_store = ScanStore(db)
-
-    scan = await scan_store.get_scan(scan_id)
-    if not scan:
-        logger.error("scan_not_found", scan_id=scan_id)
-        return
-
-    # Mark scan as RUNNING
-    await scan_store.update_scan(scan_id, {
-        "status": ScanStatus.RUNNING.value,
-        "started_at": datetime.now(timezone.utc),
-    })
-
     try:
+        db = get_firestore_client()
+        scan_store = ScanStore(db)
+
+        scan = await scan_store.get_scan(scan_id)
+        if not scan:
+            logger.error("scan_not_found", scan_id=scan_id)
+            return
+
+        # Mark scan as RUNNING
+        await scan_store.update_scan(scan_id, {
+            "status": ScanStatus.RUNNING.value,
+            "started_at": datetime.now(timezone.utc),
+        })
+
         await run_scan_pipeline(scan_id)
 
         # Mark COMPLETED
@@ -60,14 +60,22 @@ async def execute_scan(scan_id: str) -> None:
         logger.info("scan_runner_cancelled", scan_id=scan_id)
         # Scan was manually cancelled. We don't overwrite the CANCELLED status.
 
-    except Exception as exc:
+    except BaseException as exc:
         import traceback
         tb_str = traceback.format_exc()
-        logger.error("scan_runner_failed", scan_id=scan_id, error=str(exc), traceback=tb_str)
-        await scan_store.update_scan(scan_id, {
-            "status": ScanStatus.FAILED.value,
-            "error_message": f"{str(exc)[:1500]}\n\nTraceback:\n{tb_str[:500]}",
-        })
+        logger.error("scan_runner_failed_terminal", scan_id=scan_id, error=str(exc), traceback=tb_str)
+        
+        # Try to mark as FAILED in Firestore if possible
+        try:
+            db = get_firestore_client()
+            scan_store = ScanStore(db)
+            await scan_store.update_scan(scan_id, {
+                "status": ScanStatus.FAILED.value,
+                "finished_at": datetime.now(timezone.utc),
+                "error_message": f"{str(exc)[:1500]}\n\nTraceback:\n{tb_str[:500]}",
+            })
+        except Exception as db_exc:
+            logger.error("failed_to_update_firestore_on_error", error=str(db_exc))
 
 
 def main() -> None:

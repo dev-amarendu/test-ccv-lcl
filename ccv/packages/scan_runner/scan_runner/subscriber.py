@@ -25,18 +25,6 @@ from scan_runner.runner import execute_scan
 
 logger = get_logger(__name__)
 
-# Single persistent event loop for all async work
-_loop: asyncio.AbstractEventLoop | None = None
-
-
-def _get_loop() -> asyncio.AbstractEventLoop:
-    """Return a persistent event loop (created once, reused for all messages)."""
-    global _loop
-    if _loop is None or _loop.is_closed():
-        _loop = asyncio.new_event_loop()
-    return _loop
-
-
 def _callback(message: pubsub_v1.subscriber.message.Message) -> None:
     """Handle a Pub/Sub message by extracting scan_id and running the scan."""
     try:
@@ -50,17 +38,19 @@ def _callback(message: pubsub_v1.subscriber.message.Message) -> None:
 
         logger.info("pubsub_message_received", scan_id=scan_id)
 
-        # Run async scan on the persistent event loop (blocking is fine —
-        # Pub/Sub subscriber uses its own thread pool for callbacks)
-        loop = _get_loop()
-        loop.run_until_complete(execute_scan(scan_id))
+        # Run async scan in an isolated event loop for this thread.
+        # This prevents "loop already running" errors when concurrent messages arrive.
+        asyncio.run(execute_scan(scan_id))
 
         message.ack()
         logger.info("pubsub_message_acked", scan_id=scan_id)
 
     except Exception as exc:
-        logger.error("pubsub_message_handler_error", error=str(exc))
-        message.nack()
+        # We catch all exceptions here. If execute_scan failed, it already updated 
+        # Firestore. We ACK the message to prevent infinite Pub/Sub retries for
+        # terminal failures (like coding errors or misconfigurations).
+        logger.error("pubsub_message_handler_terminal_failure", error=str(exc))
+        message.ack()
 
 
 def main() -> None:

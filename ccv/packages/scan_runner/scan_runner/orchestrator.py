@@ -244,7 +244,6 @@ async def run_scan_pipeline(scan_id: str) -> None:
                        keys=list(sca_result.keys()) if isinstance(sca_result, dict) else str(type(sca_result)))
             docs_sca = normalize_findings(scan_id, sca_result)
         except Exception as sca_exc:
-            import traceback
             logger.error("sca_findings_failed", error=str(sca_exc), traceback=traceback.format_exc())
 
         # ── Step 11.5: Save all findings to Firestore and trigger AI Analysis ──
@@ -252,7 +251,6 @@ async def run_scan_pipeline(scan_id: str) -> None:
         try:
             docs_report = normalize_findings(scan_id, report)
         except Exception as rpt_exc:
-            import traceback
             logger.error("report_normalization_failed", error=str(rpt_exc), traceback=traceback.format_exc())
         
         # Deduplicate across the 3 streams (static REST, SCA REST, Detailed XML)
@@ -337,7 +335,11 @@ async def run_scan_pipeline(scan_id: str) -> None:
             traceback=traceback.format_exc(),
         )
         await scan_store.update_scan(
-            scan_id, {"status": "failed", "error_message": str(e)}
+            scan_id, {
+                "status": "failed",
+                "finished_at": datetime.now(timezone.utc),
+                "error_message": str(e)
+            }
         )
         raise
 
